@@ -42,28 +42,67 @@ def bscst(kmax):
     #### Parameter setting above are required
     #
     #### This example below corresponds to the LBM
-    sigLBM = np.zeros(kmax)
-    siglLBM = np.zeros(kmaxp1)
-    sigLBM[0]=0.02075
-    sigLBM[1]=0.09234
-    sigLBM[2]=0.2025
-    sigLBM[3]=0.3478
-    sigLBM[4]=0.5133
-    sigLBM[5]=0.6789
-    sigLBM[6]=0.8146
-    sigLBM[7]=0.8999
-    sigLBM[8]=0.9499
-    sigLBM[9]=0.9800
-    sigLBM[10]=0.9950
+    if ( kmax == 11):
+        sigLBM = np.zeros(kmax)
+        siglLBM = np.zeros(kmaxp1)
+        sigLBM[0]=0.02075
+        sigLBM[1]=0.09234
+        sigLBM[2]=0.2025
+        sigLBM[3]=0.3478
+        sigLBM[4]=0.5133
+        sigLBM[5]=0.6789
+        sigLBM[6]=0.8146
+        sigLBM[7]=0.8999
+        sigLBM[8]=0.9499
+        sigLBM[9]=0.9800
+        sigLBM[10]=0.9950
+        #
+        siglLBM[0] = sigLBM[0]/2.0
+        for k in np.arange(1, kmax, 1, dtype=int):
+            siglLBM[k] = (sigLBM[k] + sigLBM[k-1])/2.0
+        siglLBM[kmax] = 1.0
+        for kk in range(kmax):
+            k = kmax - kk - 1
+            delsig[k] = siglLBM[k+1]-siglLBM[k]
     #
-    siglLBM[0] = sigLBM[0]/2.0
-    for k in np.arange(1, kmax, 1, dtype=int):
-        siglLBM[k] = (sigLBM[k] + sigLBM[k-1])/2.0
-    siglLBM[kmax] = 1.0
     #
-    for kk in range(kmax):
-        k = kmax - kk - 1
-        delsig[k] = siglLBM[k+1]-siglLBM[k]
+    # This example below corresponds the CAM with 26 levels
+    #
+    #
+    if ( kmax == 26 ):
+        shybridl = np.zeros(kmaxp1)
+        shybridl[0] = 2.194
+        shybridl[1] = 4.895
+        shybridl[2] = 9.882
+        shybridl[3] = 18.052
+        shybridl[4] = 29.837
+        shybridl[5] = 44.623
+        shybridl[6] = 61.606
+        shybridl[7] = 78.512
+        shybridl[8] = 92.366
+        shybridl[9] = 108.664
+        shybridl[10] = 127.837
+        shybridl[11] = 150.394
+        shybridl[12] = 176.930
+        shybridl[13] = 208.149
+        shybridl[14] = 244.877
+        shybridl[15] = 288.085
+        shybridl[16] = 338.917
+        shybridl[17] = 398.917
+        shybridl[18] = 469.072
+        shybridl[19] = 551.839
+        shybridl[20] = 649.210
+        shybridl[21] = 744.383
+        shybridl[22] = 831.021
+        shybridl[23] = 903.300
+        shybridl[24] = 955.997
+        shybridl[25] = 985.112
+        shybridl[26] = 1000.0
+        for kk in range(kmax):
+            k = kmax - kk - 1
+            delsig[k] = (shybridl[k+1]-shybridl[k])/1000.0
+        #
+    #
     sum_delsig = delsig.sum()
     delsig = delsig/sum_delsig # making sure delsig sums to 1.0
     #
@@ -115,7 +154,7 @@ def bscst(kmax):
 
 
 ##
-## This matrix in version is used every time step in the implicit scheme
+## This matrix inversion is used every time step in the implicit scheme
 ## This computes it once and then passes it to the implicit to speed things up
 ##
 def inv_em(dmtrx,steps_per_day,kmax,mw,zw):
@@ -233,13 +272,13 @@ def diffsn(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,kmax,mw,zw):
 # In[6]:
 
 
-def damp(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,f_spec,tclim,lnpsclim,kmax):
+def damp(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,kmax):
     newton = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
     ray = torch.zeros((kmax),dtype=torch.float64) + 1/(10*24*60*60)
     ray[kmax-1] = 1/(2*24*60*60)
     newton[kmax-1] = 1/(2*24*60*60)
     for k in range(kmax):
-        xxx = zmn3[k] - ray[k]*(zmn1[k]-f_spec)
+        xxx = zmn3[k] - ray[k]*(zmn1[k])
         yyy = dmn3[k] - ray[k]*dmn1[k]
         zzz = tmn3[k] - newton[k]*(tmn1[k]-tclim[k])
         zmn3[k] = xxx
@@ -253,11 +292,55 @@ def damp(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,f_spec,tclim,lnpsclim,kmax):
 # In[7]:
 
 
+def damp_test(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,zclim,dclim,kmax,mw,zw):
+    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(10*24*60*60)
+#    ray[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
+    newton[:,:,0] = 1/(10*24*60*60) # Enhanced damping of the zonal mean
+    ray[kmax-1] = 1/(2*24*60*60)
+    newton[kmax-1] = 1/(2*24*60*60)
+    ray[kmax-2] = 1/(5*24*60*60)
+    newton[kmax-2] = 1/(5*24*60*60)
+    for k in range(kmax):
+        xxx = zmn3[k] - ray[k]*(zmn1[k]-zclim[k])
+        yyy = dmn3[k] - ray[k]*(dmn1[k]-dclim[k])
+        zzz = tmn3[k] - newton[k]*(tmn1[k]-tclim[k])
+        zmn3[k] = xxx
+        dmn3[k] = yyy
+        tmn3[k] = zzz
+    #
+    qmn3 = qmn3 - newton[0]*(qmn1-lnpsclim)
+    return zmn3,dmn3,tmn3,qmn3
+
+
+# In[8]:
+
+
+def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax):
+    newton = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
+    ray = torch.zeros((kmax),dtype=torch.float64) + 1/(10*24*60*60)
+    ray[kmax-1] = 1/(2*24*60*60)
+    newton[kmax-1] = 1/(2*24*60*60)
+    for k in range(kmax):
+        xxx = zmn3[k] - ray[k]*zmn1[k]
+        yyy = dmn3[k] - ray[k]*dmn1[k]
+        zzz = tmn3[k] - newton[k]*tmn1[k]
+        zmn3[k] = xxx
+        dmn3[k] = yyy
+        tmn3[k] = zzz
+    #
+    qmn3 = qmn3 - newton[0]*qmn1
+    return zmn3,dmn3,tmn3,qmn3
+
+
+# In[9]:
+
+
 #
 # Calculate non-linear products on the Gaussian grid
 # and the vertical derivatives
 #
-def nlprod(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
     c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     cbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
     dbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
@@ -295,6 +378,7 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,          r1b,r2
     #
     temp = temp - 300.0
     #
+    #
     # Compute c=V.del(q), cbs, dbs, cbar, dbar (AFGL Documentation)
     #
     for k in range(kmax):
@@ -322,8 +406,8 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,          r1b,r2
     # Compute a,b,e,ut,vt - see afgl documentation
     #
     for k in range(kmax):
-        a[k]=(vort[k]*u[k] + 287.05*temp[k]*dyq)*cs
-        b[k]=(vort[k]*v[k] - 287.05*temp[k]*dxq)*cs
+        a[k]=((vort[k]+coriolis)*u[k] + 287.05*temp[k]*dyq)*cs
+        b[k]=((vort[k]+coriolis)*v[k] - 287.05*temp[k]*dxq)*cs
         e[k]=(u[k]*u[k] + v[k]*v[k])/2.0
         ut[k]=u[k]*temp[k]*cs
         vt[k]=v[k]*temp[k]*cs
@@ -381,34 +465,45 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,          r1b,r2
     return a,b,e,ut,vt,ri,wj,cbar,dbar
 
 
-# In[ ]:
+# In[10]:
 
 
 #
 # Calculate non-linear products on the Gaussian grid
 # and the vertical derivatives
 #
-def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
     #### Using stacked variables [0] corresponds to the prescribed mean
     #### and [1] corresponds to the perturbation
     c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    c = torch.stack((c,c))
     cbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    cbs = torch.stack((cbs,cbs))
     dbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    dbs = torch.stack((dbs,dbs))
     cbar = torch.zeros((jmax,imax),dtype=torch.float64)
+    cbar = torch.stack((cbar,cbar))
     dbar = torch.zeros((jmax,imax),dtype=torch.float64)
+    dbar = torch.stack((dbar,dbar))
     sd = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64) # sigma dot - vertical vel.
+    sd = torch.stack((sd,sd))
     th = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    th = torch.stack((th,th))
     cs = torch.zeros((jmax,imax),dtype=torch.float64)
     for i in range(imax):
         mu2 = np.sqrt(1.0-cost_lg[:]*cost_lg[:])
         cs[:,i] = torch.from_numpy(mu2[:])
     sd2d = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sd2d = torch.stack((sd2d,sd2d))
     sd2d1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sd2d1 = torch.stack((sd2d1,sd2d1))
     r1p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    r1p = torch.stack((r1p,r1p))
     sduk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     sdvk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     sdwk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     r2p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    r2p = torch.stack((r2p,r2p))
     sduk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     sdvk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     sdwk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
@@ -422,6 +517,11 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,
     vt = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     ri = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     wj = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    #
+    #
+    # Remove mean temperature (300.0) from temp climo
+    #
+    temp[0] = temp[0] - 300.0
     #
     #
     # Compute c=V.del(q), cbs, dbs, cbar, dbar (AFGL Documentation)
@@ -464,11 +564,12 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,
         th[0,k+1]=cth1[k+1]*temp[0,k+1] + cth2[k]*temp[0,k]
         th[1,k+1]=cth1[k+1]*temp[1,k+1] + cth2[k]*temp[1,k]
     #
-    # Compute a,b,e,ut,vt - see afgl documentation
+    # Compute a,b,e,ut,vt - see afgl documentation, vort[0,k] is the relative background
+    #  vorticity.
     #
     for k in range(kmax):
-        a[k]=(vort[0,k]*u[1,k] + 287.05*temp[0,k]*dyq[1])*cs+             (vort[1,k]*u[0,k] + 287.05*temp[1,k]*dyq[0])*cs+             (vort[1,k]*u[1,k] + 287.05*temp[1,k]*dyq[1])*cs # non-linear term
-        b[k]=(vort[0,k]*v[1,k] - 287.05*temp[0,k]*dxq[1])*cs+             (vort[1,k]*v[0,k] - 287.05*temp[1,k]*dxq[0])*cs+             (vort[1,k]*v[1,k] - 287.05*temp[1,k]*dxq[1])*cs
+        a[k]=((vort[0,k]+coriolis)*u[1,k] + 287.05*temp[0,k]*dyq[1])*cs+             (vort[1,k]*u[0,k] + 287.05*temp[1,k]*dyq[0])*cs+             (vort[1,k]*u[1,k] + 287.05*temp[1,k]*dyq[1])*cs # non-linear term
+        b[k]=((vort[0,k]+coriolis)*v[1,k] - 287.05*temp[0,k]*dxq[1])*cs+             (vort[1,k]*v[0,k] - 287.05*temp[1,k]*dxq[0])*cs+             (vort[1,k]*v[1,k] - 287.05*temp[1,k]*dxq[1])*cs # non-linear term
         e[k]=(u[0,k]*u[1,k] + v[0,k]*v[1,k])/2.0+             (u[1,k]*u[0,k] + v[1,k]*v[0,k])/2.0+             (u[1,k]*u[1,k] + v[1,k]*v[1,k])/2.0 # non-linear term
         ut[k]=u[0,k]*temp[1,k]*cs+              u[1,k]*temp[0,k]*cs+              u[1,k]*temp[1,k]*cs # non-linear term
         vt[k]=v[0,k]*temp[1,k]*cs+              v[1,k]*temp[0,k]*cs+              v[1,k]*temp[1,k]*cs # non-linear term
@@ -481,23 +582,27 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,
         sd2d1[0,k]=sd[0,k+1]/(2.*delsig[k])
         sd2d1[1,k]=sd[1,k+1]/(2.*delsig[k])
     for k in range(kmax-1):
-        r1p[k]=temp[k]-(th[k+1]*slkap[k])/sikap[k+1]
-        sduk1[k]=sd2d1[k]*(u[k+1]-u[k])*cs
-        sdvk1[k]=sd2d1[k]*(v[k+1]-v[k])*cs
+        r1p[0,k]=temp[0,k]-(th[0,k+1]*slkap[k])/sikap[k+1]
+        r1p[1,k]=temp[1,k]-(th[1,k+1]*slkap[k])/sikap[k+1]
+        sduk1[k]=sd2d1[0,k]*(u[1,k+1]-u[1,k])*cs+                 sd2d1[1,k]*(u[0,k+1]-u[0,k])*cs+                 sd2d1[1,k]*(u[1,k+1]-u[1,k])*cs # non-linear term
+        sdvk1[k]=sd2d1[0,k]*(v[1,k+1]-v[1,k])*cs+                 sd2d1[1,k]*(v[0,k+1]-v[0,k])*cs+                 sd2d1[1,k]*(v[1,k+1]-v[1,k])*cs # non-linear term
         ###sdwk1[k]=sd2d1[k]*(w[k+1]-w[k]) # no moisture equation
-    r1p[kmax-1] = 0.0
+    r1p[0,kmax-1] = 0.0
+    r1p[1,kmax-1] = 0.0
     sduk1[kmax-1]=0.0
     sdvk1[kmax-1]=0.0
-    sdwk1[kmax-1]=0.0
+    #sdwk1[kmax-1]=0.0
     #
-    r2p[0]=0.0
+    r2p[0,0]=0.0
+    r2p[1,0]=0.0
     sduk[0]=0.0
     sdvk[0]=0.0
-    sdwk[0]=0.0
+    #sdwk[0]=0.0
     for k in np.arange(1, kmax, 1, dtype=int):
-        r2p[k]=((th[k]*slkap[k])/sikap[k])-temp[k]
-        sduk[k]=sd2d[k]*(u[k]-u[k-1])*cs
-        sdvk[k]=sd2d[k]*(v[k]-v[k-1])*cs
+        r2p[0,k]=((th[0,k]*slkap[k])/sikap[k])-temp[0,k]
+        r2p[1,k]=((th[1,k]*slkap[k])/sikap[k])-temp[1,k]
+        sduk[k]=sd2d[0,k]*(u[1,k]-u[1,k-1])*cs+                sd2d[1,k]*(u[0,k]-u[0,k-1])*cs+                sd2d[1,k]*(u[1,k]-u[1,k-1])*cs
+        sdvk[k]=sd2d[0,k]*(v[1,k]-v[1,k-1])*cs+                sd2d[1,k]*(v[0,k]-v[0,k-1])*cs+                sd2d[1,k]*(v[1,k]-v[1,k-1])*cs
         ###sdwk[k]=sd2d[k]*(w[k]-w[k-1]) # no moisture equation
     #
     # Update a, b and ri for the temperature equation
@@ -507,8 +612,13 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,
         a[k] = xx
         xx = b[k] - sduk[k] - sduk1[k]
         b[k] = xx
-        ri[k]=temp[k]*div[k]+(sd[k+1]*r1p[k]                +sd[k]*r2p[k]+r1b[k]*(si[k+1]*cbar-cbs[k+1])                +r2b[k]*(si[k]*cbar-cbs[k]))/delsig[k]                +(287.05/1005.0)*((temp[k]+300.0)*(c[k]-cbar)-temp[k]*dbar)
-        ri[k]=ri[k]+heat[k]
+        rmp=temp[0,k]*div[1,k]+(sd[0,k+1]*r1p[1,k]                +sd[0,k]*r2p[1,k])/delsig[k]                +(287.05/1005.0)*((temp[0,k]+300.0)*                (c[1,k]-cbar[1])-temp[0,k]*dbar[1])
+        #
+        rpm=temp[1,k]*div[0,k]+(sd[1,k+1]*r1p[0,k]                +sd[1,k]*r2p[0,k]+r1b[k]*(si[k+1]*cbar[1]-cbs[1,k+1])                +r2b[k]*(si[k]*cbar[1]-cbs[1,k]))/delsig[k]                +(287.05/1005.0)*((temp[1,k])*                (c[0,k]-cbar[0])-temp[1,k]*dbar[0])
+        #
+        rpp=temp[1,k]*div[1,k]+(sd[1,k+1]*r1p[1,k]                +sd[1,k]*r2p[1,k])/delsig[k]                +(287.05/1005.0)*((temp[1,k])*                (c[1,k]-cbar[1])-temp[1,k]*dbar[1]) # non-linear terms
+        #
+        ri[k]=rmp+rpm+rpp+heat[k]
         wj[k]=heat[k] # this is so that heating is easily accsessible
             # in the post-processed data
     #
@@ -528,11 +638,197 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,delsig,si,sikap,slkap,
     return a,b,e,ut,vt,ri,wj,cbar,dbar
 
 
-# In[8]:
+# In[11]:
 
 
 #
-# Implicit time differencing 
+# Linear version of nlprod_prescribed_mean
+#
+def nlprod_prescribed_mean_linear(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+    #### Using stacked variables [0] corresponds to the prescribed mean
+    #### and [1] corresponds to the perturbation
+    c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    c = torch.stack((c,c))
+    cbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    cbs = torch.stack((cbs,cbs))
+    dbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    dbs = torch.stack((dbs,dbs))
+    cbar = torch.zeros((jmax,imax),dtype=torch.float64)
+    cbar = torch.stack((cbar,cbar))
+    dbar = torch.zeros((jmax,imax),dtype=torch.float64)
+    dbar = torch.stack((dbar,dbar))
+    sd = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64) # sigma dot - vertical vel.
+    sd = torch.stack((sd,sd))
+    th = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
+    th = torch.stack((th,th))
+    cs = torch.zeros((jmax,imax),dtype=torch.float64)
+    for i in range(imax):
+        mu2 = np.sqrt(1.0-cost_lg[:]*cost_lg[:])
+        cs[:,i] = torch.from_numpy(mu2[:])
+    sd2d = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sd2d = torch.stack((sd2d,sd2d))
+    sd2d1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sd2d1 = torch.stack((sd2d1,sd2d1))
+    r1p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    r1p = torch.stack((r1p,r1p))
+    sduk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sdvk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sdwk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    r2p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    r2p = torch.stack((r2p,r2p))
+    sduk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sdvk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    sdwk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    #
+    # Return variables
+    #
+    a = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    b = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    e = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    ut = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    vt = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    ri = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    wj = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    #
+    #
+    # Remove mean temperature (300.0) from temp climo
+    #
+    temp[0] = temp[0] - 300.0
+    #
+    #
+    # Compute c=V.del(q), cbs, dbs, cbar, dbar (AFGL Documentation)
+    #
+    for k in range(kmax):
+        c[0,k] = u[0,k]*dxq[0] + v[0,k]*dyq[0] # mean * mean
+        c[1,k] = u[0,k]*dxq[1] + u[1,k]*dxq[0] +                 v[0,k]*dyq[1] + v[1,k]*dyq[0]
+                ## u[1,k]*dxq[1] + v[1,k]*dyq[1] # top two lines
+                                               # are prime * bar terms
+                                               # and last line is
+                                               # prime * prime term.
+                                               # Comment last line
+                                               # for linear model
+    for k in range(kmax):
+        cbs[0,k+1]=cbs[0,k] + c[0,k]*delsig[k]
+        dbs[0,k+1]=dbs[0,k] + div[0,k]*delsig[k]
+        cbs[1,k+1]=cbs[1,k] + c[1,k]*delsig[k]
+        dbs[1,k+1]=dbs[1,k] + div[1,k]*delsig[k]
+    cbar[0]=cbs[0,kmax]
+    dbar[0]=dbs[0,kmax]
+    cbar[1]=cbs[1,kmax]
+    dbar[1]=dbs[1,kmax]
+    #
+    # Compute sd = si*(cbar+dbar)-cbs-dbs
+    #
+    sd[0,0] = 0.0
+    sd[1,0] = 0.0
+    for k in np.arange(1, kmax, 1, dtype=int):
+        sd[0,k]=si[k]*(cbar[0] + dbar[0]) - cbs[0,k] - dbs[0,k]
+        sd[1,k]=si[k]*(cbar[1] + dbar[1]) - cbs[1,k] - dbs[1,k]
+    sd[0,kmax] = 0.0
+    sd[1,kmax] = 0.0
+    #
+    # Compute th
+    #
+    th[0,0] = 0.0
+    th[1,0] = 0.0
+    th[0,kmax]=temp[0,kmax-1]
+    th[1,kmax]=temp[1,kmax-1]
+    for k in range(kmax-1):
+        th[0,k+1]=cth1[k+1]*temp[0,k+1] + cth2[k]*temp[0,k]
+        th[1,k+1]=cth1[k+1]*temp[1,k+1] + cth2[k]*temp[1,k]
+    #
+    # Compute a,b,e,ut,vt - see afgl documentation, vort[0,k] is the relative background
+    #  vorticity.
+    #
+    for k in range(kmax):
+        a[k]=((vort[0,k]+coriolis)*u[1,k] + 287.05*temp[0,k]*dyq[1])*cs+             (vort[1,k]*u[0,k] + 287.05*temp[1,k]*dyq[0])*cs
+             ##(vort[1,k]*u[1,k] + 287.05*temp[1,k]*dyq[1])*cs # non-linear term
+        b[k]=((vort[0,k]+coriolis)*v[1,k] - 287.05*temp[0,k]*dxq[1])*cs+             (vort[1,k]*v[0,k] - 287.05*temp[1,k]*dxq[0])*cs
+             ##(vort[1,k]*v[1,k] - 287.05*temp[1,k]*dxq[1])*cs # non-linear term
+        e[k]=(u[0,k]*u[1,k] + v[0,k]*v[1,k])/2.0+             (u[1,k]*u[0,k] + v[1,k]*v[0,k])/2.0
+             ##(u[1,k]*u[1,k] + v[1,k]*v[1,k])/2.0 # non-linear term
+        ut[k]=u[0,k]*temp[1,k]*cs+              u[1,k]*temp[0,k]*cs
+             ##u[1,k]*temp[1,k]*cs # non-linear term
+        vt[k]=v[0,k]*temp[1,k]*cs+              v[1,k]*temp[0,k]*cs
+              ##v[1,k]*temp[1,k]*cs # non-linear term
+    #
+    # Vertical Advection
+    #
+    for k in range(kmax):
+        sd2d[0,k]=sd[0,k]/(2.*delsig[k])
+        sd2d[1,k]=sd[1,k]/(2.*delsig[k])
+        sd2d1[0,k]=sd[0,k+1]/(2.*delsig[k])
+        sd2d1[1,k]=sd[1,k+1]/(2.*delsig[k])
+    for k in range(kmax-1):
+        r1p[0,k]=temp[0,k]-(th[0,k+1]*slkap[k])/sikap[k+1]
+        r1p[1,k]=temp[1,k]-(th[1,k+1]*slkap[k])/sikap[k+1]
+        sduk1[k]=sd2d1[0,k]*(u[1,k+1]-u[1,k])*cs+                 sd2d1[1,k]*(u[0,k+1]-u[0,k])*cs
+                 ##sd2d1[1,k]*(u[1,k+1]-u[1,k])*cs # non-linear term
+        sdvk1[k]=sd2d1[0,k]*(v[1,k+1]-v[1,k])*cs+                 sd2d1[1,k]*(v[0,k+1]-v[0,k])*cs
+                 ##sd2d1[1,k]*(v[1,k+1]-v[1,k])*cs # non-linear term
+        ###sdwk1[k]=sd2d1[k]*(w[k+1]-w[k]) # no moisture equation
+    r1p[0,kmax-1] = 0.0
+    r1p[1,kmax-1] = 0.0
+    sduk1[kmax-1]=0.0
+    sdvk1[kmax-1]=0.0
+    #sdwk1[kmax-1]=0.0
+    #
+    r2p[0,0]=0.0
+    r2p[1,0]=0.0
+    sduk[0]=0.0
+    sdvk[0]=0.0
+    #sdwk[0]=0.0
+    for k in np.arange(1, kmax, 1, dtype=int):
+        r2p[0,k]=((th[0,k]*slkap[k])/sikap[k])-temp[0,k]
+        r2p[1,k]=((th[1,k]*slkap[k])/sikap[k])-temp[1,k]
+        sduk[k]=sd2d[0,k]*(u[1,k]-u[1,k-1])*cs+                sd2d[1,k]*(u[0,k]-u[0,k-1])*cs
+                ##sd2d[1,k]*(u[1,k]-u[1,k-1])*cs # non-linear term
+        sdvk[k]=sd2d[0,k]*(v[1,k]-v[1,k-1])*cs+                sd2d[1,k]*(v[0,k]-v[0,k-1])*cs
+                ##sd2d[1,k]*(v[1,k]-v[1,k-1])*cs # non-linear term
+        ###sdwk[k]=sd2d[k]*(w[k]-w[k-1]) # no moisture equation
+    #
+    # Update a, b and ri for the temperature equation
+    #
+    for k in range(kmax):
+        xx = a[k] + sdvk[k] + sdvk1[k]
+        a[k] = xx
+        xx = b[k] - sduk[k] - sduk1[k]
+        b[k] = xx
+        rmp=temp[0,k]*div[1,k]+(sd[0,k+1]*r1p[1,k]                +sd[0,k]*r2p[1,k])/delsig[k]                +(287.05/1005.0)*((temp[0,k]+300.0)*                (c[1,k]-cbar[1])-temp[0,k]*dbar[1])
+        #
+        rpm=temp[1,k]*div[0,k]+(sd[1,k+1]*r1p[0,k]                +sd[1,k]*r2p[0,k]+r1b[k]*(si[k+1]*cbar[1]-cbs[1,k+1])                +r2b[k]*(si[k]*cbar[1]-cbs[1,k]))/delsig[k]                +(287.05/1005.0)*((temp[1,k])*                (c[0,k]-cbar[0])-temp[1,k]*dbar[0])
+        #
+        #rpp=temp[1,k]*div[1,k]+(sd[1,k+1]*r1p[1,k]\
+        #        +sd[1,k]*r2p[1,k])/delsig[k]\
+        #        +(287.05/1005.0)*((temp[1,k])*\
+        #        (c[1,k]-cbar[1])-temp[1,k]*dbar[1]) # non-linear terms
+        #
+        ri[k] = rmp + rpm + heat[k]
+        #ri[k]=rmp+rpm+rpp+heat[k]
+        wj[k]=heat[k] # this is so that heating is easily accsessible
+            # in the post-processed data
+    #
+    #
+    for k in range(kmax):
+        xx = a[k]/cs
+        a[k] = xx
+        xx = b[k]/cs
+        b[k] = xx
+        xx = ut[k]/cs
+        ut[k] = xx
+        xx = vt[k]/cs 
+        vt[k] = xx
+        ### Normalization by cs is required
+                         ### to get the right inverse transform
+    #
+    return a,b,e,ut,vt,ri,wj,cbar,dbar
+
+
+# In[12]:
+
+
+#
+# Implicit time differencing - Not implemented correctly
 #
 def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,             tmn3,wmn1,wmn2,wmn3,qmn1,qmn2,qmn3,phismn,delsig,kmax,mw,zw):
     em = torch.zeros((mw,zw,kmax,kmax),dtype=torch.float64)
@@ -594,11 +890,11 @@ def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 #
 
 
-# In[9]:
+# In[13]:
 
 
 #
-# Explicit time differencing ##### Not working yet ...
+# Explicit time differencing 
 #
 def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,             tmn3,wmn1,wmn2,wmn3,qmn1,qmn2,qmn3,phismn,delsig,kmax,mw,zw):
     ae = 6.371E+06
@@ -613,7 +909,7 @@ def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
     nn = nn.expand(mw,zw)
     aaa = nn * (nn + 1)/(ae*ae)
     #
-    ### compute rh2 = amtrx @ store2 for each wave number
+    ### compute rh2 = amtrx @ tmn2 for each wave number
     #
     rr = torch.from_numpy(amtrx).double()
     tmp_r = torch.einsum('kl,lji->kji',[rr,tmn2.real])
@@ -651,7 +947,7 @@ def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 #
 
 
-# In[10]:
+# In[14]:
 
 
 #
@@ -664,15 +960,15 @@ def tfilt(filt,fmn1,fmn2,fmn3):
     return fmn1,fmn2,fmn3
 
 
-# In[11]:
+# In[15]:
 
 
 #
 # Convert spectral vorticity and divergence into u & v on
-# Gaussian grid. Note that the total vorticity is passed
-# so coriolis parameter needs to be removed
+# Gaussian grid. Note this routine assumes that the relative
+# vorticity is input
 #
-def uv(ivsht,vort,div,f_spec,mw,zw,kmax,imax,jmax):
+def uv(ivsht,vort,div,mw,zw,kmax,imax,jmax):
     ae = 6.371E+06
     u = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     v = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
@@ -681,7 +977,7 @@ def uv(ivsht,vort,div,f_spec,mw,zw,kmax,imax,jmax):
     invlap = -(ae*ae)/nn/(nn+1)
     invlap[0]=0.
     for k in range(kmax):
-        streamf = invlap*(vort[k] - f_spec)/ae
+        streamf = invlap*vort[k]/ae
         vp = invlap*div[k]/ae
         vordiv = torch.stack((streamf,vp))
         uvgrid = ivsht(vordiv).cpu()
@@ -691,17 +987,17 @@ def uv(ivsht,vort,div,f_spec,mw,zw,kmax,imax,jmax):
 #
 
 
-# In[12]:
+# In[16]:
 
 
 #
 # Calculate grad(lnPs)
 #
-def gradq(ivsht,qmn,mw,zw,kmax,imax,jmax):
+def gradq(ivsht,qmn,mw,zw,imax,jmax):
     ae = 6.371E+06
     zerospec = torch.zeros((mw,zw),dtype=torch.complex128)
-    dxq = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    dyq = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
+    dxq = torch.zeros((jmax,imax),dtype=torch.float64)
+    dyq = torch.zeros((jmax,imax),dtype=torch.float64)
     qmna = qmn/ae
     zeroq = torch.stack((zerospec,qmna))
     gradqgrid = ivsht(zeroq).cpu()
@@ -711,7 +1007,7 @@ def gradq(ivsht,qmn,mw,zw,kmax,imax,jmax):
 #
 
 
-# In[13]:
+# In[17]:
 
 
 #
@@ -733,7 +1029,7 @@ def vortdivspec(vsht,u,v,kmax,mw,zw):
     return vort,div
 
 
-# In[14]:
+# In[18]:
 
 
 #
@@ -749,7 +1045,7 @@ def lap_sht(sht,e,mw,zw):
     return spec_lap
 
 
-# In[15]:
+# In[19]:
 
 
 #
@@ -772,14 +1068,14 @@ def get_geo_ps(isht,tmn,qmn,phismn,amtrx,kmax,mw,zw,jmax,imax):
     return lnps,geo
 
 
-# In[16]:
+# In[20]:
 
 
 #
 # Convert spectral data to Gaussian grid and write to disk
 # as netcdf data
 #
-def postprocessing(isht,ivsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn,f_spec,amtrx,                   times,mw,zw,kmax,imax,jmax,sl,lats,lons,tl,                  datapath):
+def postprocessing(isht,ivsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn,amtrx,                   times,mw,zw,kmax,imax,jmax,sl,lats,lons,tl,                  datapath):
     u = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     v = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     vort = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
@@ -788,7 +1084,7 @@ def postprocessing(isht,ivsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn
     geo = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     lnps = torch.zeros((tl,jmax,imax),dtype=torch.float64)
     for it in range(tl):
-        u[it],v[it] = uv(ivsht,zmnt[it],dmnt[it],f_spec,mw,zw,kmax,imax,jmax)
+        u[it],v[it] = uv(ivsht,zmnt[it],dmnt[it],mw,zw,kmax,imax,jmax)
         for k in range(kmax):
 #            vort[it,k] = isht(zmnt[it,k]).cpu() # uncomment if vort wanted
 #            div[it,k] = isht(dmnt[it,k]).cpu() # uncomment of div wanted
