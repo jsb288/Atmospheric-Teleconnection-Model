@@ -239,3 +239,5 @@ dependencies:
   - zict=2.1.0=py39hca03da5_0
   - zlib=1.2.13=h53f4e23_5
   - zstd=1.5.5=h4f39d0f_0
+  - pip:
+    - torch-harmonics==0.6.3
