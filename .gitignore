@@ -169,3 +169,15 @@ Model/tsig.ggrid.pt
 Model/usig.ggrid.pt
 Model/vortsig.ggrid.pt
 Model/vsig.ggrid.pt
+MultiThread_Model/divsig.ggrid.pt
+MultiThread_Model/dxq_gg.ggrid.pt
+MultiThread_Model/dyq_gg.ggrid.pt
+MultiThread_Model/heat.ggrid.pt
+MultiThread_Model/landsea.ggrid.pt
+MultiThread_Model/lnps.spectral.pt
+MultiThread_Model/temp.spectral.pt
+MultiThread_Model/topog.spectral.pt
+MultiThread_Model/tsig.ggrid.pt
+MultiThread_Model/usig.ggrid.pt
+MultiThread_Model/vortsig.ggrid.pt
+MultiThread_Model/vsig.ggrid.pt
