@@ -1,22 +1,32 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 import numpy as np
 import torch
-import xarray
-import pandas as pd
-from netCDF4 import Dataset
-import dask
-import torch.nn as nn
-import torch.fft as fft
-
-from sht_utils import *
+from torch_harmonics.quadrature import legendre_gauss_weights
+import torch_harmonics.distributed as dist
+import xarray as xr
 
 
-# In[2]:
+# In[3]:
+
+
+#
+def precompute_latitudes(nlat, a=-1.0, b=1.0):
+    #
+    #    Convenience routine to precompute latitudes
+    #
+    xlg, wlg = legendre_gauss_weights(nlat, a=a, b=b)
+    lats = np.flip(np.arccos(xlg)).copy()
+    wlg = np.flip(wlg).copy()
+
+    return xlg, wlg, lats
+
+
+# In[4]:
 
 
 #### Constants, parameters and vertical structure issues set here
@@ -30,40 +40,17 @@ from sht_utils import *
 ####
 def bscst(kmax):
     kmaxp1 = kmax + 1
-    delsig = np.zeros(kmax) #### The following parameter must be set
-    si = np.zeros(kmaxp1)   #### and are returned
-    sl = np.zeros(kmax)
-    sikap = np.zeros(kmaxp1)
-    slkap = np.zeros(kmax)
-    cth1 = np.zeros(kmax)
-    cth2 = np.zeros(kmax)
-    r1b = np.zeros(kmax)
-    r2b = np.zeros(kmax)
-    #### Parameter setting above are required
+    delsig = np.zeros(kmax) 
     #
     #### This example below corresponds to the LBM
     if ( kmax == 11):
-        sigLBM = np.zeros(kmax)
-        siglLBM = np.zeros(kmaxp1)
-        sigLBM[0]=0.02075
-        sigLBM[1]=0.09234
-        sigLBM[2]=0.2025
-        sigLBM[3]=0.3478
-        sigLBM[4]=0.5133
-        sigLBM[5]=0.6789
-        sigLBM[6]=0.8146
-        sigLBM[7]=0.8999
-        sigLBM[8]=0.9499
-        sigLBM[9]=0.9800
-        sigLBM[10]=0.9950
-        #
-        siglLBM[0] = sigLBM[0]/2.0
-        for k in np.arange(1, kmax, 1, dtype=int):
-            siglLBM[k] = (sigLBM[k] + sigLBM[k-1])/2.0
-        siglLBM[kmax] = 1.0
+        sigLBM = [0.02075, 0.09234, 0.2025, 0.3478, 0.5133, 0.6789, 0.8146, 0.8999, 0.9499, 0.9800, 0.9950]
+        siglLBM = []
+        siglLBM.append(sigLBM[0]/2.0)
+        [siglLBM.append((sigLBM[k] + sigLBM[k-1])/2.0 ) for k in np.arange(1, kmax, 1)]
+        siglLBM.append(1.0)
         for kk in range(kmax):
-            k = kmax - kk - 1
-            delsig[k] = siglLBM[k+1]-siglLBM[k]
+            delsig[kmax - kk - 1] = siglLBM[kmax - kk - 1+1]-siglLBM[kmax - kk - 1]
     #
     #
     # This example below corresponds the CAM with 26 levels
@@ -71,33 +58,7 @@ def bscst(kmax):
     #
     if ( kmax == 26 ):
         shybridl = np.zeros(kmaxp1)
-        shybridl[0] = 2.194
-        shybridl[1] = 4.895
-        shybridl[2] = 9.882
-        shybridl[3] = 18.052
-        shybridl[4] = 29.837
-        shybridl[5] = 44.623
-        shybridl[6] = 61.606
-        shybridl[7] = 78.512
-        shybridl[8] = 92.366
-        shybridl[9] = 108.664
-        shybridl[10] = 127.837
-        shybridl[11] = 150.394
-        shybridl[12] = 176.930
-        shybridl[13] = 208.149
-        shybridl[14] = 244.877
-        shybridl[15] = 288.085
-        shybridl[16] = 338.917
-        shybridl[17] = 398.917
-        shybridl[18] = 469.072
-        shybridl[19] = 551.839
-        shybridl[20] = 649.210
-        shybridl[21] = 744.383
-        shybridl[22] = 831.021
-        shybridl[23] = 903.300
-        shybridl[24] = 955.997
-        shybridl[25] = 985.112
-        shybridl[26] = 1000.0
+        shybridl = [2.194, 4.895, 9.882, 18.052, 29.837, 44.623, 61.606, 78.512, 92.366, 108.664,                    127.837, 150.394, 176.930, 208.149, 244.877, 288.085, 338.917, 398.917,                    469.072, 551.839, 649.210, 744.383, 831.021, 903.300, 955.997,                    985.112, 1000.0]
         for kk in range(kmax):
             k = kmax - kk - 1
             delsig[k] = (shybridl[k+1]-shybridl[k])/1000.0
@@ -117,40 +78,52 @@ def bscst(kmax):
     #  slkap, cth1, cth2 are returned 
     #  variables and are used for vertical differencing
     #
-    t0h = np.zeros(kmax+1)
-    th = np.zeros(kmax+1)
     rkappa = 287.05/1005.0 #### R/Cp
-    si[0]=0.0
-    si[kmax]=1.0
-    sikap[0]=0.0
-    sikap[kmax]=1.0
-    for k in range(kmax-1):
-        si[k+1]=si[k]+delsig[k]
-        sikap[k+1]=si[k+1]**rkappa
+    si = []
+    si.append(0.0)
+    [si.append(si[k] + delsig[k]) for k in range(kmax-1)]
+    si.append(1.0)
+    si = np.array(si)
+    
+    sikap = []
+    [sikap.append(si[k]**rkappa) for k in range(kmax)]
+    sikap.append(1.0)
+    sikap = np.array(sikap)
     rk1=1.0+rkappa
     #
-    for k in range(kmax):
-        slkap[k]=(si[k+1]**rk1-si[k]**rk1)/(rk1*(si[k+1]-si[k]))
-        sl[k]=slkap[k]**(1.0/rkappa)
+    slkap = np.stack([(si[k+1]**rk1-si[k]**rk1) / (rk1*(si[k+1]-si[k])) for k in range(kmax)])
+    sl = np.stack([slkap[k]**(1.0/rkappa) for k in range(kmax)])
     #
-    for k in range(kmax-1):
-        cth1[k+1]=sikap[k+1]/(2.0*slkap[k+1])
-        cth2[k]=sikap[k+1]/(2.0*slkap[k])
+    cth1 = []
+    cth1.append(0.0)
+    [cth1.append(sikap[k+1]/(2.0*slkap[k+1]) ) for k in range(kmax-1)]
+    cth1 = np.array(cth1)
+    
+    cth2 = []
+    [cth2.append( sikap[k+1]/(2.0*slkap[k])) for k in range(kmax-1)]
+    cth2.append(0.0)
+    cth2 = np.array(cth2)
+
+    t0h = []
+    t0h.append(0.0)
+    [t0h.append(cth1[k+1]*300.0+cth2[k]*300.0) for k in range(kmax-1)]
+    t0h.append(300.0)
+    t0h = np.array(t0h)
+
+    r1b = []
+    [r1b.append(300.0-slkap[k]/sikap[k+1]*t0h[k+1]) for k in range(kmax) if k < (kmax-1)]
+    r1b.append(0.0)
+    r1b = np.array(r1b)
+    
+    r2b = []
+    r2b.append(0.0)
+    [r2b.append(t0h[k]*slkap[k]/sikap[k]-300.0) for k in range(kmax) if k > 0]
+    r2b = np.array(r2b)
     #
-    t0h[0]=0.0
-    t0h[kmax]=300.0
-    for k in range(kmax-1):
-        t0h[k+1]=cth1[k+1]*300.0+cth2[k]*300.0
-    #
-    for k in range(kmax):
-        if ( k > 0 ):
-            r2b[k]=t0h[k]*slkap[k]/sikap[k]-300.0
-        if ( k < kmax-1 ):
-            r1b[k]=300.0-slkap[k]/sikap[k+1]*t0h[k+1]
     return delsig, si, sl, sikap, slkap, cth1, cth2, r1b, r2b
 
 
-# In[3]:
+# In[5]:
 
 
 ##
@@ -176,7 +149,7 @@ def inv_em(dmtrx,steps_per_day,kmax,mw,zw):
     return qq
 
 
-# In[4]:
+# In[6]:
 
 
 ###
@@ -185,68 +158,62 @@ def inv_em(dmtrx,steps_per_day,kmax,mw,zw):
 ### time differencing.
 ###
 def mcoeff(kmax,si,sl,slkap,r1b,r2b,delsig):
-    amtrx = np.zeros((kmax,kmax))
     cmtrx = np.zeros((kmax,kmax))
-    dmtrx = np.zeros((kmax,kmax))
     #
     # local variables
     b = np.zeros((kmax,kmax))
     h = np.zeros((kmax,kmax))
-    cm = np.zeros((kmax,kmax))
-    am = np.zeros((kmax,kmax))
-    aa = np.zeros(kmax)
-    bb = np.zeros(kmax)
-    mu = np.zeros(kmax)
-    nu = np.zeros(kmax)
-    lamda = np.zeros(kmax)
-    for k in range(kmax-1):
-        aa[k]=0.5*1005.0*(slkap[k]-slkap[k+1])/slkap[k+1]
-        bb[k]=0.5*1005.0*(slkap[k]-slkap[k+1])/slkap[k]
-#
-    for k in range(kmax):
-        lamda[k]=(287.05/1005.0)*300.0-(si[k]*r2b[k]+si[k+1]*r1b[k])/delsig[k]
-        mu[k]=lamda[k]+r1b[k]/delsig[k]
-        nu[k]=mu[k]+r2b[k]/delsig[k]
-#
+    
+    aa = []
+    bb = []
+    [aa.append(0.5*1005.0*(slkap[k]-slkap[k+1])/slkap[k+1]) for k in range(kmax-1)]
+    [bb.append(0.5*1005.*(slkap[k]-slkap[k+1])/slkap[k]) for k in range(kmax-1)]
+    
+    lamda = []
+    mu = []
+    nu = []
+    [lamda.append((287.05/1005.0)*300.0-(si[k]*r2b[k]+si[k+1]*r1b[k])/delsig[k]) for k in range(kmax)]
+    [mu.append(lamda[k]+r1b[k]/delsig[k]) for k in range(kmax)]
+    [nu.append(mu[k]+r2b[k]/delsig[k]) for k in range(kmax)]
+
     for k in range(kmax-1):
         h[k,k]=-1.0
         h[k,k+1]=1.0
         b[k,k]=bb[k]
         b[k,k+1]=aa[k]
-#
+
     for k in range(kmax):
         h[kmax-1,k]=delsig[k]
         b[kmax-1,k]=287.05*delsig[k]
-#
+
     for i in range(kmax-1):
         cmtrx[i,i]=mu[i]*delsig[i]
         for j in np.arange(i, kmax-1, 1, dtype=int):
             cmtrx[i,j+1]=lamda[i]*delsig[j+1]
         for j in np.arange(0, i+1, 1, dtype=int):
             cmtrx[i+1,j]=nu[i+1]*delsig[j]
-#
+    
     cmtrx[kmax-1,kmax-1]=mu[kmax-1]*delsig[kmax-1]
     hinv = np.linalg.inv(h)
     amtrx = hinv @ b
     cm = amtrx @ cmtrx
-    for k in range(kmax):
-        for l in range(kmax):
-            am[k,l]=287.05*300.0*delsig[l]
-#
+    am = [[287.05*300.0*delsig[l] for l in range(kmax)] for k in range(kmax)]
+
     dmtrx = cm + am
+
     return amtrx,cmtrx,dmtrx
 
 
-# In[5]:
+# In[7]:
 
 
 #
 #
 # Horizontal Diffusion del*4 
 #
-def diffsn(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,kmax,mw,zw):
-    ae = 6.371E+06
-    a4 = ae*ae*ae*ae
+def diffsn(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,mw,zw):
+    ae = torch.tensor(6.371E+06)
+    a4 = torch.pow(ae,4)
     dkh = a4/(mw*mw*(mw+1)*(mw+1)*21*60*60)
     ekh = a4/(mw*mw*(mw+1)*(mw+1)*28*60*60)
     dkha4 = dkh/a4
@@ -255,85 +222,75 @@ def diffsn(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,kmax,mw,zw):
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
     nn2 = nn * ( nn + 1 )
-    nn4 = nn2 * nn2
-    for k in range(kmax):
-        dddt = dmn3[k] - dkha4*nn4*dmn1[k]
-        dmn3[k] = dddt
-        dzdt = zmn3[k] - ekha4*nn4*zmn1[k]
-        zmn3[k] = dzdt
-        dtdt = tmn3[k] - ekha4*nn4*tmn1[k]
-        tmn3[k] = dtdt
+    nn4 = torch.square(nn2)
+    #
+    dmn3 -= dkha4*nn4*dmn1
+    zmn3 -= ekha4*nn4*zmn1
+    tmn3 -= ekha4*nn4*tmn1
     #
     #
     return zmn3,dmn3,tmn3
 #
 
 
-# In[6]:
+# In[8]:
 
 
 def damp(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,kmax):
     newton = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax),dtype=torch.float64) + 1/(10*24*60*60)
+    ray = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
     ray[kmax-1] = 1/(2*24*60*60)
     newton[kmax-1] = 1/(2*24*60*60)
-    for k in range(kmax):
-        xxx = zmn3[k] - ray[k]*(zmn1[k])
-        yyy = dmn3[k] - ray[k]*dmn1[k]
-        zzz = tmn3[k] - newton[k]*(tmn1[k]-tclim[k])
-        zmn3[k] = xxx
-        dmn3[k] = yyy
-        tmn3[k] = zzz
-    #
-    qmn3 = qmn3 - newton[0]*(qmn1-lnpsclim)
-    return zmn3,dmn3,tmn3,qmn3
-
-
-# In[7]:
-
-
-def damp_test(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,zclim,dclim,kmax,mw,zw):
-    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(10*24*60*60)
-#    ray[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
-    newton[:,:,0] = 1/(10*24*60*60) # Enhanced damping of the zonal mean
-    ray[kmax-1] = 1/(2*24*60*60)
-    newton[kmax-1] = 1/(2*24*60*60)
-    ray[kmax-2] = 1/(5*24*60*60)
-    newton[kmax-2] = 1/(5*24*60*60)
-    for k in range(kmax):
-        xxx = zmn3[k] - ray[k]*(zmn1[k]-zclim[k])
-        yyy = dmn3[k] - ray[k]*(dmn1[k]-dclim[k])
-        zzz = tmn3[k] - newton[k]*(tmn1[k]-tclim[k])
-        zmn3[k] = xxx
-        dmn3[k] = yyy
-        tmn3[k] = zzz
-    #
-    qmn3 = qmn3 - newton[0]*(qmn1-lnpsclim)
-    return zmn3,dmn3,tmn3,qmn3
-
-
-# In[8]:
-
-
-def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax):
-    newton = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax),dtype=torch.float64) + 1/(10*24*60*60)
-    ray[kmax-1] = 1/(2*24*60*60)
-    newton[kmax-1] = 1/(2*24*60*60)
-    for k in range(kmax):
-        xxx = zmn3[k] - ray[k]*zmn1[k]
-        yyy = dmn3[k] - ray[k]*dmn1[k]
-        zzz = tmn3[k] - newton[k]*tmn1[k]
-        zmn3[k] = xxx
-        dmn3[k] = yyy
-        tmn3[k] = zzz
-    #
-    qmn3 = qmn3 - newton[0]*qmn1
+    zmn3 -= torch.einsum('kij,k->kij',zmn1,ray)
+    dmn3 -= torch.einsum('kij,k->kij',dmn1,ray)
+    tmn3 -= torch.einsum('kij,k->kij',(tmn1-tclim),newton)
+    qmn3 = qmn3 - newton[kmax-1]*(qmn1-lnpsclim)
     return zmn3,dmn3,tmn3,qmn3
 
 
 # In[9]:
+
+
+def damp_test(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,zclim,dclim,kmax,mw,zw):
+    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(40*24*60*60)
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(150*24*60*60)
+    ray[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
+    newton[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
+    ray[kmax-1] = 1/(2*24*60*60)
+    newton[kmax-1] = 1/(2*24*60*60)
+    ray[kmax-2] = 1/(3*24*60*60)
+    newton[kmax-2] = 1/(3*24*60*60)
+    #
+    zmn3 -= ray*(zmn1-zclim)
+    dmn3 -= ray*(dmn1-dclim)
+    tmn3 -= newton*(tmn1-tclim)
+    qmn3 = qmn3 - newton[0]*(qmn1-lnpsclim)
+    #
+    return zmn3,dmn3,tmn3,qmn3
+
+
+# In[10]:
+
+
+def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax,mw,zw):
+    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
+    ray[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
+    newton[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
+    ray[kmax-1] = 1/(2*24*60*60)
+    newton[kmax-1] = 1/(2*24*60*60)
+    ray[kmax-2] = 1/(3*24*60*60)
+    newton[kmax-2] = 1/(3*24*60*60)
+    #
+    zmn3 -= ray*zmn1
+    dmn3 -= ray*dmn1
+    tmn3 -= newton*tmn1
+    qmn3 = qmn3 - newton[0]*qmn1
+    #
+    return zmn3,dmn3,tmn3,qmn3
+
+
+# In[11]:
 
 
 #
@@ -341,38 +298,11 @@ def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax):
 # and the vertical derivatives
 #
 def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
-    c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     cbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
     dbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
-    cbar = torch.zeros((jmax,imax),dtype=torch.float64)
-    dbar = torch.zeros((jmax,imax),dtype=torch.float64)
-    sd = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64) # sigma dot - vertical vel.
     th = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
-    cs = torch.zeros((jmax,imax),dtype=torch.float64)
-    for i in range(imax):
-        mu2 = np.sqrt(1.0-cost_lg[:]*cost_lg[:])
-        cs[:,i] = torch.from_numpy(mu2[:])
-    sd2d = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sd2d1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    r1p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sduk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sdvk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sdwk1 = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    r2p = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sduk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sdvk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    sdwk = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    #
-    # Return variables
-    #
-    a = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    b = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    e = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    ut = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    vt = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    ri = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    wj = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    #
+    mu2 = torch.sqrt(1.0-torch.tensor(cost_lg[:]*cost_lg[:]))
+    cs = mu2[...,None].broadcast_to((jmax,imax))
     #
     # Remove mean temperature (300.0) from temp
     #
@@ -381,8 +311,8 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,       
     #
     # Compute c=V.del(q), cbs, dbs, cbar, dbar (AFGL Documentation)
     #
-    for k in range(kmax):
-        c[k] = u[k]*dxq + v[k]*dyq
+    c = torch.stack([u[k]*dxq + v[k]*dyq for k in range(kmax)])
+    #
     for k in range(kmax):
         cbs[k+1]=cbs[k] + c[k]*delsig[k]
         dbs[k+1]=dbs[k] + div[k]*delsig[k]
@@ -391,10 +321,9 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,       
     #
     # Compute sd = si*(cbar+dbar)-cbs-dbs
     #
-    sd[0] = 0.0
-    for k in np.arange(1, kmax, 1, dtype=int):
-        sd[k]=si[k]*(cbar + dbar) - cbs[k] - dbs[k]
-    sd[kmax] = 0.0
+    sd = torch.stack([si[k]*(cbar + dbar) - cbs[k] - dbs[k] for k in np.arange(1, kmax, 1, dtype=int)])
+    sd = torch.vstack((torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0),sd))
+    sd = torch.vstack((sd,torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0)))
     #
     # Compute th
     #
@@ -405,67 +334,66 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,       
     #
     # Compute a,b,e,ut,vt - see afgl documentation
     #
-    for k in range(kmax):
-        a[k]=((vort[k]+coriolis)*u[k] + 287.05*temp[k]*dyq)*cs
-        b[k]=((vort[k]+coriolis)*v[k] - 287.05*temp[k]*dxq)*cs
-        e[k]=(u[k]*u[k] + v[k]*v[k])/2.0
-        ut[k]=u[k]*temp[k]*cs
-        vt[k]=v[k]*temp[k]*cs
+    a = torch.stack([((vort[k]+coriolis)*u[k] + 287.05*temp[k]*dyq)*cs for k in range(kmax)])
+    b = torch.stack([((vort[k]+coriolis)*v[k] - 287.05*temp[k]*dxq)*cs for k in range(kmax)])
+    e = torch.stack([(u[k]*u[k] + v[k]*v[k])/2.0 for k in range(kmax)])
+    ut = torch.stack([u[k]*temp[k]*cs for k in range(kmax)])
+    vt = torch.stack([v[k]*temp[k]*cs for k in range(kmax)])
     #
     # Vertical Advection
     #
-    for k in range(kmax):
-        sd2d[k]=sd[k]/(2.*delsig[k])
-        sd2d1[k]=sd[k+1]/(2.*delsig[k])
-    for k in range(kmax-1):
-        r1p[k]=temp[k]-(th[k+1]*slkap[k])/sikap[k+1]
-        sduk1[k]=sd2d1[k]*(u[k+1]-u[k])*cs
-        sdvk1[k]=sd2d1[k]*(v[k+1]-v[k])*cs
-        ###sdwk1[k]=sd2d1[k]*(w[k+1]-w[k]) # no moisture equation
-    r1p[kmax-1] = 0.0
-    sduk1[kmax-1]=0.0
-    sdvk1[kmax-1]=0.0
-    sdwk1[kmax-1]=0.0
+    sd2d = torch.stack([sd[k]/(2.*delsig[k]) for k in range(kmax)])
+    sd2d1 = torch.stack([sd[k+1]/(2.*delsig[k]) for k in range(kmax)])
+
+    r1p = torch.stack([temp[k]-(th[k+1]*slkap[k])/sikap[k+1] for k in range(kmax-1)])
+    r1p = torch.vstack((r1p,torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0)))
+    
+    sduk1 = torch.stack([sd2d1[k]*(u[k+1]-u[k])*cs for k in range(kmax-1)])
+    sduk1 = torch.vstack((sduk1,torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0)))
+    
+    sdvk1 = torch.stack([sd2d1[k]*(v[k+1]-v[k])*cs for k in range(kmax-1)])
+    sdvk1 = torch.vstack((sdvk1,torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0)))
     #
-    r2p[0]=0.0
-    sduk[0]=0.0
-    sdvk[0]=0.0
-    sdwk[0]=0.0
-    for k in np.arange(1, kmax, 1, dtype=int):
-        r2p[k]=((th[k]*slkap[k])/sikap[k])-temp[k]
-        sduk[k]=sd2d[k]*(u[k]-u[k-1])*cs
-        sdvk[k]=sd2d[k]*(v[k]-v[k-1])*cs
-        ###sdwk[k]=sd2d[k]*(w[k]-w[k-1]) # no moisture equation
+    #sdwk1 = torch.stack([sd2d1[k]*(w[k+1]-w[k]) for k in range(kmax-1)])
+    sdwk1 = torch.stack([torch.zeros((jmax,imax),dtype=torch.float64) for k in range(kmax-1)])
+    sdwk1 = torch.vstack((sdwk1,torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0)))
+
+    r2p = torch.stack([((th[k]*slkap[k])/sikap[k])-temp[k] for k in np.arange(1, kmax, 1, dtype=int)])
+    r2p = torch.vstack((torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0), r2p))
+
+    sduk = torch.stack([sd2d[k]*(u[k]-u[k-1])*cs for k in np.arange(1, kmax, 1, dtype=int)])
+    sduk = torch.vstack((torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0), sduk))
+
+    sdvk = torch.stack([sd2d[k]*(v[k]-v[k-1])*cs for k in np.arange(1, kmax, 1, dtype=int)])
+    sdvk = torch.vstack((torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0), sdvk))
+
+    #sdwk = torch.stack([sd2d[k]*(w[k]-w[k-1]) for k in np.arange(1, kmax, 1, dtype=int)]) # no moisture equation
+    sdwk = torch.stack([torch.zeros((jmax,imax),dtype=torch.float64) for k in np.arange(1, kmax, 1, dtype=int)])
+    sdwk = torch.vstack((torch.zeros((jmax,imax),dtype=torch.float64).unsqueeze(0), sdwk))
     #
     # Update a, b and ri for the temperature equation
     #
-    for k in range(kmax):
-        xx = a[k] + sdvk[k] + sdvk1[k]
-        a[k] = xx
-        xx = b[k] - sduk[k] - sduk1[k]
-        b[k] = xx
-        ri[k]=temp[k]*div[k]+(sd[k+1]*r1p[k]                +sd[k]*r2p[k]+r1b[k]*(si[k+1]*cbar-cbs[k+1])                +r2b[k]*(si[k]*cbar-cbs[k]))/delsig[k]                +(287.05/1005.0)*((temp[k]+300.0)*(c[k]-cbar)-temp[k]*dbar)
-        ri[k]=ri[k]+heat[k]
-        wj[k]=heat[k] # this is so that heating is easily accsessible
-            # in the post-processed data
+    a =  torch.stack([a[k] + sdvk[k] + sdvk1[k] for k in range(kmax)])
+    b =  torch.stack([b[k] - sduk[k] - sduk1[k] for k in range(kmax)])
+    ri = torch.stack([temp[k]*div[k]+(sd[k+1]*r1p[k]
+                                      +sd[k]*r2p[k]+r1b[k]*(si[k+1]*cbar-cbs[k+1])
+                                      +r2b[k]*(si[k]*cbar-cbs[k]))/delsig[k]
+                      +(287.05/1005.0)*((temp[k]+300.0)*(c[k]-cbar)-temp[k]*dbar) for k in range(kmax)])
+    ri = torch.stack([ri[k]+heat[k] for k in range(kmax)])
+    wj = torch.stack([heat[k] for k in range(kmax)]) # this is so that heating is easily accsessible
     #
     #
-    for k in range(kmax):
-        xx = a[k]/cs
-        a[k] = xx
-        xx = b[k]/cs
-        b[k] = xx
-        xx = ut[k]/cs
-        ut[k] = xx
-        xx = vt[k]/cs 
-        vt[k] = xx
+    a /= cs
+    b /= cs
+    ut /= cs
+    vt /= cs
         ### Normalization by cs is required
                          ### to get the right inverse transform
     #
     return a,b,e,ut,vt,ri,wj,cbar,dbar
 
 
-# In[10]:
+# In[12]:
 
 
 #
@@ -638,7 +566,7 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sik
     return a,b,e,ut,vt,ri,wj,cbar,dbar
 
 
-# In[11]:
+# In[13]:
 
 
 #
@@ -824,7 +752,7 @@ def nlprod_prescribed_mean_linear(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig
     return a,b,e,ut,vt,ri,wj,cbar,dbar
 
 
-# In[12]:
+# In[14]:
 
 
 #
@@ -869,9 +797,7 @@ def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
     tmp_i = torch.einsum('kl,lji->kji',[qq,rhs.imag])
     rh2 = torch.complex(tmp_r, tmp_i)
     #
-    xx = torch.complex(torch.tensor([0.0]).double(),torch.tensor([0.0]).double())
-    for k in range(kmax):
-        xx = xx + delsig[k]*rhs[k] # rh_tmp is rhs in AFGL
+    xx = torch.einsum('kij,k->kij',dmn2,torch.tensor(delsig)).sum(dim=0) # dbar
     #
     dzdt = zmn3
     zmn3=zmn1+dt2*dzdt
@@ -890,7 +816,7 @@ def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 #
 
 
-# In[13]:
+# In[15]:
 
 
 #
@@ -947,7 +873,7 @@ def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 #
 
 
-# In[14]:
+# In[16]:
 
 
 #
@@ -960,7 +886,7 @@ def tfilt(filt,fmn1,fmn2,fmn3):
     return fmn1,fmn2,fmn3
 
 
-# In[15]:
+# In[17]:
 
 
 #
@@ -968,46 +894,40 @@ def tfilt(filt,fmn1,fmn2,fmn3):
 # Gaussian grid. Note this routine assumes that the relative
 # vorticity is input
 #
-def uv(ivsht,vort,div,mw,zw,kmax,imax,jmax):
+def uv(divsht,vort,div,mw,zw,kmax,imax,jmax):
     ae = 6.371E+06
-    u = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    v = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
     invlap = -(ae*ae)/nn/(nn+1)
     invlap[0]=0.
-    for k in range(kmax):
-        streamf = invlap*vort[k]/ae
-        vp = invlap*div[k]/ae
-        vordiv = torch.stack((streamf,vp))
-        uvgrid = ivsht(vordiv).cpu()
-        u[k] = uvgrid[0]
-        v[k] = uvgrid[1]
+    streamf = invlap.unsqueeze(0)*vort/ae
+    vp = invlap.unsqueeze(0)*div/ae
+    vordiv = torch.stack((streamf,vp), 1)
+    uvgrid = divsht(vordiv)
+    u = uvgrid[:,0,:,:]
+    v = uvgrid[:,1,:,:]
     return u,v
 #
 
 
-# In[16]:
+# In[18]:
 
 
 #
 # Calculate grad(lnPs)
 #
-def gradq(ivsht,qmn,mw,zw,imax,jmax):
+def gradq(divsht,qmn,mw,zw,imax,jmax):
     ae = 6.371E+06
-    zerospec = torch.zeros((mw,zw),dtype=torch.complex128)
-    dxq = torch.zeros((jmax,imax),dtype=torch.float64)
-    dyq = torch.zeros((jmax,imax),dtype=torch.float64)
     qmna = qmn/ae
-    zeroq = torch.stack((zerospec,qmna))
-    gradqgrid = ivsht(zeroq).cpu()
+    zeroq = torch.stack((torch.zeros_like(qmna),qmna))
+    gradqgrid = divsht(zeroq)
     dxq = gradqgrid[0]
     dyq = gradqgrid[1]
     return dxq,dyq
 #
 
 
-# In[17]:
+# In[19]:
 
 
 #
@@ -1015,67 +935,80 @@ def gradq(ivsht,qmn,mw,zw,imax,jmax):
 # and divergence
 #
 def vortdivspec(vsht,u,v,kmax,mw,zw):
-    vort = torch.zeros((kmax,mw,zw),dtype=torch.complex128)
-    div = torch.zeros((kmax,mw,zw),dtype=torch.complex128)
     ae = 6.371E+06
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
     lap = -(nn*(nn+1))/(ae*ae)
-    for k in range(kmax):
-        uvgrid = torch.stack((u[k],v[k]))
-        xy = (lap*vsht(uvgrid).cpu())*ae        
-        vort[k] = xy[0]
-        div[k] = xy[1]
+    uvgrid = torch.stack((u,v), 1)
+    xy = (lap*vsht(uvgrid))*ae 
+    vort = xy[:,0,:,:]
+    div = xy[:,1,:,:]
     return vort,div
-
-
-# In[18]:
-
-
-#
-# Convert from grid to spectral and then apply laplacian
-#
-def lap_sht(sht,e,mw,zw):
-    spec_lap = torch.zeros((mw,zw),dtype=torch.complex128)
-    ae = 6.371E+06
-    nn = torch.arange(0,mw).reshape(mw, 1).double()
-    nn = nn.expand(mw,zw)
-    lap = -(nn*(nn+1))/(ae*ae)
-    spec_lap = (lap*sht(e).cpu())        
-    return spec_lap
-
-
-# In[19]:
-
-
-#
-# Get gridded lnps and geopotential
-#
-def get_geo_ps(isht,tmn,qmn,phismn,amtrx,kmax,mw,zw,jmax,imax):
-    geosmn = torch.zeros((kmax,mw,zw),dtype=torch.complex128)
-    geo = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
-    lnps = isht(qmn).cpu()
-    qq = tmn
-    rr = torch.from_numpy(amtrx)
-    tmp_r = torch.einsum('kl,lji->kji',[rr,qq.real])
-    tmp_i = torch.einsum('kl,lji->kji',[rr,qq.imag])
-    rh2 = torch.complex(tmp_r, tmp_i)
-    for k in range(kmax):
-        geosmn[k] = phismn + rh2[k]
-    for k in range(kmax):
-        geo[k] = isht(geosmn[k]).cpu()
-    #
-    return lnps,geo
 
 
 # In[20]:
 
 
 #
+# Convert from grid to spectral and then apply laplacian
+#
+def lap_sht(dsht,e,mw,zw):
+    ae = 6.371E+06
+    nn = torch.arange(0,mw).reshape(mw, 1).double()
+    nn = nn.expand(mw,zw)
+    lap = -(nn*(nn+1))/(ae*ae)
+    spec_lap = (lap*dsht(e))         
+    return spec_lap
+
+
+# In[21]:
+
+
+#
+# Get gridded lnps and geopotential
+#
+def get_geo_ps(disht,tmn,qmn,phismn,amtrx,kmax,mw,zw,jmax,imax):
+    lnps = disht(qmn)
+    qq = tmn
+    rr = torch.from_numpy(amtrx)
+    tmp_r = torch.einsum('kl,lji->kji',[rr,qq.real])
+    tmp_i = torch.einsum('kl,lji->kji',[rr,qq.imag])
+    rh2 = torch.complex(tmp_r, tmp_i)
+    #
+    geosmn = torch.stack([phismn + rh2[k] for k in range(kmax)])
+    geo = disht(geosmn)
+    return lnps,geo
+
+
+# In[22]:
+
+
+#
+# Calcucluate Potential Temperature in sigma coordinates on the
+# Gaussian Grid
+#
+#
+def potential_temp(temp,sigma,lnps,kmax):
+    pressure = temp*0.0
+    surfp = (np.exp(lnps))*1000.0
+    for k in range(kmax):
+        pressure[k] = sigma[k]*surfp
+    #
+    r = 287.5
+    cp = 1004.0
+    gamma = r/cp
+    theta = temp*((1000.0/pressure)**gamma)
+    return theta
+
+
+# In[23]:
+
+
+#
 # Convert spectral data to Gaussian grid and write to disk
 # as netcdf data
 #
-def postprocessing(isht,ivsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn,amtrx,                   times,mw,zw,kmax,imax,jmax,sl,lats,lons,tl,                  datapath):
+def postprocessing(disht,divsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn,amtrx,                   times,mw,zw,kmax,imax,jmax,sl,lats,lons,tl,                  datapath):
     u = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     v = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     vort = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
@@ -1084,31 +1017,37 @@ def postprocessing(isht,ivsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn
     geo = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     lnps = torch.zeros((tl,jmax,imax),dtype=torch.float64)
     for it in range(tl):
-        u[it],v[it] = uv(ivsht,zmnt[it],dmnt[it],mw,zw,kmax,imax,jmax)
+        u[it],v[it] = uv(divsht,zmnt[it],dmnt[it],mw,zw,kmax,imax,jmax)
         for k in range(kmax):
-#            vort[it,k] = isht(zmnt[it,k]).cpu() # uncomment if vort wanted
-#            div[it,k] = isht(dmnt[it,k]).cpu() # uncomment of div wanted
-            temp[it,k] = isht(tmnt[it,k]).cpu()
-        lnps[it],geo[it] = get_geo_ps(isht,tmnt[it],qmnt[it],phismn,amtrx,kmax,mw,zw,                         jmax,imax)
+#            vort[it,k] = disht(zmnt[it,k]) # uncomment if vort wanted
+#            div[it,k] = disht(dmnt[it,k]) # uncomment of div wanted
+            temp[it,k] = disht(tmnt[it,k])
+        lnps[it],geo[it] = get_geo_ps(disht,tmnt[it],qmnt[it],phismn,amtrx,kmax,mw,zw,                         jmax,imax)
     #
     tstamp_start = str(times[0])[0:10]
     tstamp_end = str(times[tl-1])[0:10]
     stamp = tstamp_start+'_'+tstamp_end
-    du = xarray.Dataset({'u': (['time','lev','lat','lon'],u.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
-    dv = xarray.Dataset({'v': (['time','lev','lat','lon'],v.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
-#    dvort = xarray.Dataset({'vort': (['time','lev','lat','lon'],vort.numpy())},\
+    du = xr.Dataset({'u': (['time','lev','lat','lon'],u.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
+    dv = xr.Dataset({'v': (['time','lev','lat','lon'],v.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
+#    dvort = xr.Dataset({'vort': (['time','lev','lat','lon'],vort.numpy())},\
 #                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons}) # uncomment of vort wanted
-#    ddiv = xarray.Dataset({'div': (['time','lev','lat','lon'],div.numpy())},\
+#    ddiv = xr.Dataset({'div': (['time','lev','lat','lon'],div.numpy())},\
 #                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons}) # uncomment of div wanted
-    dtemp = xarray.Dataset({'t': (['time','lev','lat','lon'],temp.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
-    dgeo = xarray.Dataset({'geo': (['time','lev','lat','lon'],geo.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
-    dps = xarray.Dataset({'lnps': (['time','lat','lon'],lnps.numpy())},                        coords={'time': times,'lat': lats, 'lon': lons})
-    du.to_netcdf(datapath+'uvel_'+stamp+'.nc')
-    dv.to_netcdf(datapath+'vvel_'+stamp+'.nc')
-    dtemp.to_netcdf(datapath+'temp_'+stamp+'.nc')
-    dgeo.to_netcdf(datapath+'geo_'+stamp+'.nc')
-    dps.to_netcdf(datapath+'lnps_'+stamp+'.nc')
-#    dvort.to_netcdf(datapath+'vort_'+stamp+'.nc') # uncomment of vort wanted
-#    ddiv.to_netcdf(datapath+'div_'+stamp+'.nc') # uncomment of div wanted
+    dtemp = xr.Dataset({'t': (['time','lev','lat','lon'],temp.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
+    dgeo = xr.Dataset({'geo': (['time','lev','lat','lon'],geo.numpy())},                        coords={'time': times,'lev':sl, 'lat': lats, 'lon': lons})
+    dps = xr.Dataset({'lnps': (['time','lat','lon'],lnps.numpy())},                        coords={'time': times,'lat': lats, 'lon': lons})
+    datasets = list([du, dv, dtemp, dgeo, dps])
+    filename_paths = list([datapath+'uvel_'+stamp+'.nc'
+                           ,datapath+'vvel_'+stamp+'.nc'
+                           ,datapath+'temp_'+stamp+'.nc'
+                           ,datapath+'geo_'+stamp+'.nc'
+                           ,datapath+'lnps_'+stamp+'.nc'])
+    xr.save_mfdataset(datasets, filename_paths)
     return
+
+
+# In[ ]:
+
+
+
 
