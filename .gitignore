@@ -158,26 +158,9 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-Model/heat.ggrid.pt
-Model/lnps.spectral.pt
-Model/temp.spectral.pt
-Model/topog.spectral.pt
-Model/divsig.ggrid.pt
-Model/dxq_gg.ggrid.pt
-Model/dyq_gg.ggrid.pt
-Model/tsig.ggrid.pt
-Model/usig.ggrid.pt
-Model/vortsig.ggrid.pt
-Model/vsig.ggrid.pt
-MultiThread_Model/divsig.ggrid.pt
-MultiThread_Model/dxq_gg.ggrid.pt
-MultiThread_Model/dyq_gg.ggrid.pt
-MultiThread_Model/heat.ggrid.pt
-MultiThread_Model/landsea.ggrid.pt
-MultiThread_Model/lnps.spectral.pt
-MultiThread_Model/temp.spectral.pt
-MultiThread_Model/topog.spectral.pt
-MultiThread_Model/tsig.ggrid.pt
-MultiThread_Model/usig.ggrid.pt
-MultiThread_Model/vortsig.ggrid.pt
-MultiThread_Model/vsig.ggrid.pt
+
+# Ignore folders created to store preprocess data.
+Model/preprocess__*/
+MultiThread_Model/preprocess__*/
+
+#
