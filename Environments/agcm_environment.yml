@@ -1,0 +1,16 @@
+name: agcm_environment
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - xesmf
+  - matplotlib
+  - netcdf4
+  - pydap
+  - dask
+  - cartopy
+  - pytorch
+  - ipykernel
+  - pip:
+      - torch-harmonics
