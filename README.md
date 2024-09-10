@@ -2,7 +2,7 @@ Brief Instuctions on how to run the model:
 
 1) Make sure you have the correct environment (see environments folder)
 
-2) Download subs1_utlis.py, RunModel.Beta.ipynb (or , Preprocess.ipynb from the multi_thread)
+2) Download subs1_utlis.py, RunModel.Beta.ipynb (or) , Preprocess.ipynb from the multithread_model folder))
 
 3) Edit RunModel.Beta.ipynb & Preprocess.ipynb to choose your resolution, number of months to run, and make sure you folder paths are correctly set. Documentation in the notebooks should help in doing this.
 
