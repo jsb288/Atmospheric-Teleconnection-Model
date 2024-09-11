@@ -160,7 +160,6 @@ cython_debug/
 #.idea/
 
 # Ignore folders created to store preprocess data.
-Model/preprocess__*/
 MultiThread_Model/preprocess__*/
 
 #
