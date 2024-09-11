@@ -252,8 +252,8 @@ def damp(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,kmax):
 
 
 def damp_test(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,zclim,dclim,kmax,mw,zw):
-    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(20*24*60*60)
+    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(40*24*60*60)
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(150*24*60*60)
     ray[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
     newton[:,:,0] = 1/(7*24*60*60) # Enhanced damping of the zonal mean
     ray[kmax-1] = 1/(2*24*60*60)
@@ -272,16 +272,20 @@ def damp_test(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,tclim,lnpsclim,zclim,dclim
 # In[10]:
 
 
-def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax):
-    newton = torch.zeros((kmax),dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax),dtype=torch.float64) + 1/(10*24*60*60)
+def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax,mw,zw):
+    newton = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(40*24*60*60)
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64) + 1/(150*24*60*60)
+    ray[:,:,0] = 1/(3*24*60*60) # Enhanced damping of the zonal mean
+    newton[:,:,0] = 1/(3*24*60*60) # Enhanced damping of the zonal mean
     ray[kmax-1] = 1/(2*24*60*60)
     newton[kmax-1] = 1/(2*24*60*60)
+    ray[kmax-2] = 1/(3*24*60*60)
+    newton[kmax-2] = 1/(3*24*60*60)
     #
-    zmn3 -= ray*(zmn1-zclim)
-    dmn3 -= ray*(dmn1-dclim)
-    tmn3 -= newton*(tmn1-tclim)
-    qmn3 = qmn3 - newton[0]*(qmn1-lnpsclim)
+    zmn3 -= ray*zmn1
+    dmn3 -= ray*dmn1
+    tmn3 -= newton*tmn1
+    qmn3 = qmn3 - newton[0]*qmn1
     #
     return zmn3,dmn3,tmn3,qmn3
 
