@@ -1,13 +1,26 @@
-Brief Instuctions on how to run the model:
+# Atmosperic Teleconnection Model
 
-1) Make sure you have the correct environment (see environments folder)
+## Getting Started (Installation):
 
-2) Download subs1_utlis.py, RunModel.Beta.ipynb (or RunModel.PrescribedMean.ipynb),Preprocess.ipynb from the MultiThread_Model folder. The RunModel.Beta.ipybb is the weakly prescribed mean version and the RunModel.PrescribedMean.ipynb is the strongly prescribed mean version of the model. See manuscript for detailed discussion of the two versions of the model.
+1) Install the project from Github  
+Click the green "<>Code" button, click "Download ZIP", find the project in your downloads, and unzip the folder (extract all). You can move the entire Atmosperic-Teleconnection-Model folder, but moving individual files within that folder may cause problems if all scripts' folder path variables are not changed accordingly.
 
-3) Edit RunModel.Beta.ipynb & Preprocess.ipynb to choose your resolution, number of months to run, and make sure you folder paths are correctly set - that is, where to write the output. Documentation in the notebooks should help in doing this.
+2) Make sure you have the correct environment  
+The Environments folder includes yml files you can use to create a python environment for the project. For more on creating a conda environment from a yml file, refer to the [Conda User Guide](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file). Use the agcm_environment_windows.yml file for environments on Windows machines or the agcm_environment_mac.yml file for MAC machines. agcm_environment.yml is a generic version which can be used for either.
 
-4) Run Preprocess.ipynb as a jupyter notebook. You can easily modify the topography, background state or the heating in this script, but we suggest running without modification first.
+3) Edit Preprocess.ipynb variables  
+Edit Preprocess.ipynb to choose your resolution, number of months to run, and make sure you folder paths are correctly set - that is, where to write the output. Documentation in the notebooks should help in doing this.
 
-5) Run RunModel.Beta.ipynb (or RunModel.PrescribedMean.ipynb)
+4) Run Preprocess.ipynb as a jupyter notebook  
+You can easily modify the topography, background state or the heating in this script, but we suggest running without modification first.
 
-6) There are two post processing scripts in the postprocessing fold for vertical interpolation for sigma to pressure coordinates. The perferred post-posssing uses the metpy indicated in the filename. The raw model output is in the native sigma coordinate in the vertical and is on the Gaussian grid for the horizontal. 
+5) Edit RunModel.beta.ipynb (or RunModel.PrescribedMean.ipynb) variables  
+Choose which model you are using and edit its variables according to your requirements. Variables included in both postprocess and the model must match. The RunModel.Beta.ipynb is the weakly prescribed mean version and the RunModel.PrescribedMean.ipynb is the strongly prescribed mean version of the model. See manuscript for detailed discussion of the two versions of the model.
+
+6) Run RunModel.beta.ipynb (or RunModel.PrescribedMean.ipynb)  
+
+
+7) Edit and run a Postprocess script  
+Before running the postprocess file, edit the variables to match your data from the preprocess and model files. There are two post processing scripts in the Postprocess folder for vertical interpolation for sigma to pressure coordinates. The preferred post-processing uses metpy as indicated in the filename. The raw model output is in the native sigma coordinate in the vertical and is on the Gaussian grid for the horizontal.
+
+
