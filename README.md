@@ -23,4 +23,6 @@ The RunModel.beta.ipynb file is the weakly prescribed mean version and the RunMo
 7) Edit and run a Postprocess script  
 Before running the postprocess file, edit the variables to match your data from the preprocess and model files. There are two post-processing scripts in the Postprocess folder for vertical interpolation for sigma to pressure coordinates. The preferred post-processing uses metpy as indicated in the filename. The raw model output is in the native sigma coordinate in the vertical and is on the Gaussian grid for the horizontal.
 
+8) Issues, questions or concerns please contact Ben Kirtman at bkirtman@miami.edu.
+
 
