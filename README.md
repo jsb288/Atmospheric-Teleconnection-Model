@@ -1,4 +1,4 @@
-# Atmosperic Teleconnection Model
+# Atmospheric Teleconnection Model
 
 ## Getting Started (Installation):
 
