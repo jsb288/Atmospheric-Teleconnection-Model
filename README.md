@@ -14,7 +14,7 @@ The Environments folder includes yml files you can use to create a python enviro
 
    (ii) conda install -n agcm_environment -c conda-forge xesmf;
 
-   (iii) conda active agcm_environment;
+   (iii) conda activate agcm_environment;
 
    (iv) pip3 install torch-harmonics==0.6.3 
 
