@@ -6,6 +6,7 @@
 
 import numpy as np
 import torch
+import torch_harmonics as th
 from torch_harmonics.quadrature import legendre_gauss_weights
 import torch_harmonics.distributed as dist
 import xarray as xr
@@ -1046,8 +1047,38 @@ def postprocessing(disht,divsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phis
     return
 
 
-# In[ ]:
+# In[24]:
+
+def set_spectral_transforms(jmax, imax, mw, zw):
+    # Get the Gaussian latitudes and equally spaced longitudes
+    #
+    cost_lg, wlg, lats = precompute_latitudes(jmax)
+    lats = 90-180*lats/(np.pi)
+    lons = np.linspace(0.0,360.0-360.0/imax,imax)
+    #
+    # Instantiate grid to spectral (dsht) and spectral to grid (disht) distibuted transforms
+    #
+    vsht = th.RealVectorSHT(jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
+    dsht = dist.DistributedRealSHT(jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
+    disht = dist.DistributedInverseRealSHT(jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
+    dvsht = dist.DistributedRealVectorSHT(jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
+    divsht = dist.DistributedInverseRealVectorSHT(jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
+    return cost_lg, wlg, lats, lons, vsht, dsht, disht, dvsht, divsht
 
 
+# In[25]:
 
+# Initialize spectral fields (at rest or to be read in)
+def initialize(temp_newton,lnpsclim,kmax,mw,zw,tmn1,tmn2,tmn3):
+    for k in range (kmax):
+        tmn1[k] = tmn1[k] + temp_newton[k]
+        tmn2[k] = tmn2[k] + temp_newton[k]
+        tmn3[k] = tmn3[k] + temp_newton[k]
+    qmn1 = lnpsclim
+    qmn2 = lnpsclim
+    qmn3 = lnpsclim
+    return tmn1,tmn2,tmn3,qmn1,qmn2,qmn3
+
+
+# In[ ]
 
