@@ -3,6 +3,10 @@
 
 # In[2]:
 
+from os import path
+import pathlib
+import platform
+import subprocess
 
 import numpy as np
 import torch
@@ -1078,6 +1082,77 @@ def initialize(temp_newton,lnpsclim,kmax,mw,zw,tmn1,tmn2,tmn3):
     qmn2 = lnpsclim
     qmn3 = lnpsclim
     return tmn1,tmn2,tmn3,qmn1,qmn2,qmn3
+
+
+# In[26]:
+
+def get_preprocess_path(zw, kmax):
+    """Return the relative path storing the preprocess model data.
+    
+    The preprocess file shares a directory with the model and saves its data to
+    a folder under that directory. This folder is named after the variable values in the data.
+    Throw an exception if the path doesn't exist.
+    """
+    preprocess_path = (
+        'preprocess'
+        + '__zw_' + str(zw)
+        + '__kmax_' + str(kmax)
+        + '\\'
+    )
+
+    # Check that the path exists, throwing an exception if it doesn't.
+    folder = path.join(pathlib.Path().resolve(), preprocess_path)
+    if path.isdir(folder):
+        print("Directory containing preprocess data was found.",
+            "\npreprocess_path =", preprocess_path)
+    else:
+        raise Exception("Directory containing preprocess data was not found. "
+                        + "\npreprocess_path = " + str(preprocess_path)
+                        + "\nfull path = " + str(folder)
+                        + "\nRun preprocess.ipynb prior to running the model."
+                        + "\nPreprocess must use the same variable values as the model."
+        )
+    
+    return preprocess_path
+
+
+# In[27]:
+
+def set_model_data_path(custom_path, expname, toffset):
+    """Set the output datapath for the model and return it.
+
+    If custom_path was set, use that as the datapath.
+    Otherwise create an appropriate datapath for the user's operating system.
+    If this is a cold start without a custom path,
+    remove any existing path and create a new empty folder.
+    """
+    user_platform = platform.system() if (custom_path is None) else "Custom Path"
+    print("Setting output datapath for", user_platform)
+    datapath = ''
+    match user_platform:
+        case 'Custom Path':
+            datapath = custom_path
+        case 'Windows':
+            foo = str(subprocess.check_output(['whoami']))
+            end = len(foo) - 5
+            uname = foo[2:end].split("\\\\")[1]
+            datapath = "C:\\Users\\" + uname + "\\Documents\\AGCM_Experiments\\" + expname + "\\"
+            if ( toffset == 0): # Cold Start
+                subprocess.run(['rmdir', '/s', '/q', datapath], shell=True)
+                subprocess.run(['mkdir', datapath], shell=True)
+        case 'Darwin':
+            foo = str(subprocess.check_output(['whoami']))
+            end = len(foo) - 3
+            uname = foo[2:end]
+            datapath = '/Users/'+uname+'/Documents/AGCM_Experiments/'+expname+'/'
+            if ( toffset == 0): # Cold Start
+                subprocess.call(['rm','-r', datapath])
+                subprocess.check_output(['mkdir', datapath])
+        case _:
+            raise Exception("Use case for this system/OS is not implemented. Consider using custom_path in the advanced variables.")
+    print("datapath =", datapath)
+
+    return datapath
 
 
 # In[ ]
