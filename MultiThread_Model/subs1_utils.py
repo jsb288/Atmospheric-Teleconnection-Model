@@ -1133,17 +1133,17 @@ def set_model_data_path(custom_path, expname, toffset):
         case 'Custom Path':
             datapath = custom_path
         case 'Windows':
-            foo = str(subprocess.check_output(['whoami']))
-            end = len(foo) - 5
-            uname = foo[2:end].split("\\\\")[1]
+            whoami = str(subprocess.check_output(['whoami']))
+            end = len(whoami) - 5
+            uname = whoami[2:end].split("\\\\")[1]
             datapath = "C:\\Users\\" + uname + "\\Documents\\AGCM_Experiments\\" + expname + "\\"
             if ( toffset == 0): # Cold Start
                 subprocess.run(['rmdir', '/s', '/q', datapath], shell=True)
                 subprocess.run(['mkdir', datapath], shell=True)
         case 'Darwin':
-            foo = str(subprocess.check_output(['whoami']))
-            end = len(foo) - 3
-            uname = foo[2:end]
+            whoami = str(subprocess.check_output(['whoami']))
+            end = len(whoami) - 3
+            uname = whoami[2:end]
             datapath = '/Users/'+uname+'/Documents/AGCM_Experiments/'+expname+'/'
             if ( toffset == 0): # Cold Start
                 subprocess.call(['rm','-r', datapath])
@@ -1172,34 +1172,34 @@ def press_to_sig(kmax,imax,jmax,press_data,press_levels,ps,slmodel,kmax_model):
     # use log(sig) for interpolation.
     for isig in range(kmax_model):
         for ipress in np.arange(kmax-1, -1, -1, dtype=int):
-            foo_up = torch.gt(slmap[isig],sig_levels[ipress-1])
-            foo_dn = torch.lt(slmap[isig],sig_levels[ipress])
+            level_up = torch.gt(slmap[isig],sig_levels[ipress-1])
+            level_dn = torch.lt(slmap[isig],sig_levels[ipress])
 
             # Test if appropriate press level found.
-            foo_up = 1 * foo_up
-            foo_dn = 1 * foo_dn
-            foo = foo_up + foo_dn
-            found = (foo == 2)
+            level_up = 1 * level_up
+            level_dn = 1 * level_dn
+            level = level_up + level_dn
+            found = (level == 2)
             found = 1 * found
             # found = 1 if level is found.
             # found = 0 if level is not found.
             denom = torch.log(sig_levels[ipress]) - torch.log(sig_levels[ipress-1])
             numer1 = torch.log(sig_levels[ipress]) - torch.log(slmap[isig])
             numer2 = torch.log(slmap[isig]) - torch.log(sig_levels[ipress-1])
-            foo = numer1*press_data[ipress-1]/denom + numer2*press_data[ipress]/denom
-            sig_data[isig] = found*(foo) + (1-found)*sig_data[isig]
+            level = numer1*press_data[ipress-1]/denom + numer2*press_data[ipress]/denom
+            sig_data[isig] = found*(level) + (1-found)*sig_data[isig]
     
     # Need to check if model sigma level is below reanalysis lowest sigma level.
     for isig in range(kmax_model):
-        foo_dn = torch.gt(slmap[isig],sig_levels[kmax-1])
-        foo_dn = 1*foo_dn
-        sig_data[isig] = foo_dn*press_data[kmax-1] + (1-foo_dn)*sig_data[isig]
+        level_dn = torch.gt(slmap[isig],sig_levels[kmax-1])
+        level_dn = 1*level_dn
+        sig_data[isig] = level_dn*press_data[kmax-1] + (1-level_dn)*sig_data[isig]
     
     # Need to check if model sigma level is above reanalysis highest sigma level.
     for isig in range(kmax_model):
-        foo_up = torch.lt(slmap[isig], sig_levels[0])
-        foo_up = 1 * foo_up
-        sig_data[isig] = foo_up*press_data[0] + (1-foo_up)*sig_data[isig]
+        level_up = torch.lt(slmap[isig], sig_levels[0])
+        level_up = 1 * level_up
+        sig_data[isig] = level_up*press_data[0] + (1-level_up)*sig_data[isig]
     
     return sig_data
 

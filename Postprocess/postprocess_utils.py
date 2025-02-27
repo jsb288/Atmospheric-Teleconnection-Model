@@ -15,14 +15,14 @@ def get_model_data_path(custom_path, expname):
         case 'Custom Path':
             datapath = custom_path
         case 'Windows':
-            foo = str(subprocess.check_output(['whoami']))
-            end = len(foo) - 5
-            uname = foo[2:end].split("\\\\")[1]
+            whoami = str(subprocess.check_output(['whoami']))
+            end = len(whoami) - 5
+            uname = whoami[2:end].split("\\\\")[1]
             datapath = "C:\\Users\\" + uname + "\\Documents\\AGCM_Experiments\\" + expname + "\\"
         case 'Darwin':
-            foo = str(subprocess.check_output(['whoami']))
-            end = len(foo) - 3
-            uname = foo[2:end]
+            whoami = str(subprocess.check_output(['whoami']))
+            end = len(whoami) - 3
+            uname = whoami[2:end]
             datapath = '/Users/'+uname+'/Documents/AGCM_Experiments/'+expname+'/'
         case _:
             raise Exception("Use case for this system/OS is not implemented. Consider using custom_path in the advanced variables.")
