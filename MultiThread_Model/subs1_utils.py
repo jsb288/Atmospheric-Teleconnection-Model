@@ -18,12 +18,8 @@ import xarray as xr
 
 # In[3]:
 
-
-#
 def precompute_latitudes(nlat, a=-1.0, b=1.0):
-    #
-    #    Convenience routine to precompute latitudes
-    #
+    """Convenience routine to precompute latitudes."""
     xlg, wlg = legendre_gauss_weights(nlat, a=a, b=b)
     lats = np.flip(np.arccos(xlg)).copy()
     wlg = np.flip(wlg).copy()
@@ -33,17 +29,16 @@ def precompute_latitudes(nlat, a=-1.0, b=1.0):
 
 # In[4]:
 
-
-#### Constants, parameters and vertical structure issues set here
-####
-#### The key issue here is defining delsig(k) - this is the spacing of
-#### the vertical sigma levels. In this example, we have used the sigma
-#### levels from the 11 level Linear Baroclinic Model (LBM), and then
-#### calculate delsig(k), but one could simple specify delsig(k). Note k=kmax
-#### is the bottom (lowest layer) of the model. delsig(k) is a return
-#### variable
-####
 def bscst(kmax):
+    """Constants, parameters and vertical structure issues set here
+
+    The key issue here is defining delsig(k) - this is the spacing of
+    the vertical sigma levels. In this example, we have used the sigma
+    levels from the 11 level Linear Baroclinic Model (LBM), and then
+    calculate delsig(k), but one could simple specify delsig(k). Note k=kmax
+    is the bottom (lowest layer) of the model. delsig(k) is a return
+    variable
+    """
     kmaxp1 = kmax + 1
     delsig = np.zeros(kmax) 
     #
@@ -130,12 +125,11 @@ def bscst(kmax):
 
 # In[5]:
 
-
-##
-## This matrix inversion is used every time step in the implicit scheme
-## This computes it once and then passes it to the implicit to speed things up
-##
 def inv_em(dmtrx,steps_per_day,kmax,mw,zw):
+    """This matrix inversion is used every time step in the implicit scheme
+
+    This computes it once and then passes it to the implicit to speed things up
+    """
     em = torch.zeros((mw,zw,kmax,kmax),dtype=torch.float64)
     dt2 =2.0*86400.0/steps_per_day
     ccc = 0.5*dt2
@@ -156,13 +150,11 @@ def inv_em(dmtrx,steps_per_day,kmax,mw,zw):
 
 # In[6]:
 
-
-###
-### AMTRX, CMTRX and DMTRX used to calculate geopotential
-### height from the temperature and used in the semi-implicit
-### time differencing.
-###
 def mcoeff(kmax,si,sl,slkap,r1b,r2b,delsig):
+    """AMTRX, CMTRX and DMTRX used to calculate geopotential
+    height from the temperature and used in the semi-implicit
+    time differencing.
+    """
     cmtrx = np.zeros((kmax,kmax))
     #
     # local variables
@@ -211,12 +203,8 @@ def mcoeff(kmax,si,sl,slkap,r1b,r2b,delsig):
 
 # In[7]:
 
-
-#
-#
-# Horizontal Diffusion del*4 
-#
 def diffsn(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,mw,zw):
+    """Horizontal Diffusion del*4."""
     ae = torch.tensor(6.371E+06)
     a4 = torch.pow(ae,4)
     dkh = a4/(mw*mw*(mw+1)*(mw+1)*21*60*60)
@@ -297,12 +285,9 @@ def damp_prescribed_mean(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,kmax,mw,zw):
 
 # In[11]:
 
-
-#
-# Calculate non-linear products on the Gaussian grid
-# and the vertical derivatives
-#
 def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+    """Calculate non-linear products on the Gaussian grid
+    and the vertical derivatives."""
     cbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
     dbs = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
     th = torch.zeros((kmax+1,jmax,imax),dtype=torch.float64)
@@ -400,12 +385,10 @@ def nlprod(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,       
 
 # In[12]:
 
-
-#
-# Calculate non-linear products on the Gaussian grid
-# and the vertical derivatives
-#
 def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+    """Calculate non-linear products on the Gaussian grid
+    and the vertical derivatives"""
+    
     #### Using stacked variables [0] corresponds to the prescribed mean
     #### and [1] corresponds to the perturbation
     c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
@@ -573,11 +556,9 @@ def nlprod_prescribed_mean(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sik
 
 # In[13]:
 
-
-#
-# Linear version of nlprod_prescribed_mean
-#
 def nlprod_prescribed_mean_linear(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig,si,sikap,slkap,          r1b,r2b,cth1,cth2,cost_lg,kmax,imax,jmax):
+    """Linear version of nlprod_prescribed_mean."""
+    
     #### Using stacked variables [0] corresponds to the prescribed mean
     #### and [1] corresponds to the perturbation
     c = torch.zeros((kmax,jmax,imax),dtype=torch.float64)
@@ -759,11 +740,8 @@ def nlprod_prescribed_mean_linear(u,v,vort,div,temp,dxq,dyq,heat,coriolis,delsig
 
 # In[14]:
 
-
-#
-# Implicit time differencing - Not implemented correctly
-#
 def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,             tmn3,wmn1,wmn2,wmn3,qmn1,qmn2,qmn3,phismn,delsig,kmax,mw,zw):
+    """Implicit time differencing - Not implemented correctly."""
     em = torch.zeros((mw,zw,kmax,kmax),dtype=torch.float64)
     ae = 6.371E+06
     andree = 2.0e-02
@@ -823,11 +801,8 @@ def implicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 
 # In[15]:
 
-
-#
-# Explicit time differencing 
-#
 def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,             tmn3,wmn1,wmn2,wmn3,qmn1,qmn2,qmn3,phismn,delsig,kmax,mw,zw):
+    """Explicit time differencing."""
     ae = 6.371E+06
     andree = 2.0e-02
     alpha = 0.5
@@ -880,11 +855,8 @@ def explicit(dt,amtrx,cmtrx,dmtrx,emtrx,zmn1,zmn2,zmn3,dmn1,dmn2,dmn3,tmn1,tmn2,
 
 # In[16]:
 
-
-#
-# Robert time filtering
-#
 def tfilt(filt,fmn1,fmn2,fmn3):
+    """Robert time filtering."""
     xxx = fmn2 + filt*(fmn1 - 2*fmn2 + fmn3)
     fmn1 = xxx
     fmn2 = fmn3
@@ -893,13 +865,11 @@ def tfilt(filt,fmn1,fmn2,fmn3):
 
 # In[17]:
 
-
-#
-# Convert spectral vorticity and divergence into u & v on
-# Gaussian grid. Note this routine assumes that the relative
-# vorticity is input
-#
 def uv(divsht,vort,div,mw,zw,kmax,imax,jmax):
+    """Convert spectral vorticity and divergence into u & v on
+    Gaussian grid. Note this routine assumes that the relative
+    vorticity is input.
+    """
     ae = 6.371E+06
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
@@ -917,11 +887,8 @@ def uv(divsht,vort,div,mw,zw,kmax,imax,jmax):
 
 # In[18]:
 
-
-#
-# Calculate grad(lnPs)
-#
 def gradq(divsht,qmn,mw,zw,imax,jmax):
+    """Calculate grad(lnPs)."""
     ae = 6.371E+06
     qmna = qmn/ae
     zeroq = torch.stack((torch.zeros_like(qmna),qmna))
@@ -934,12 +901,10 @@ def gradq(divsht,qmn,mw,zw,imax,jmax):
 
 # In[19]:
 
-
-#
-# Convert u and v on Gaussian grid to spectral vorticity
-# and divergence
-#
 def vortdivspec(vsht,u,v,kmax,mw,zw):
+    """Convert u and v on Gaussian grid to spectral vorticity
+    and divergence.
+    """
     ae = 6.371E+06
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
@@ -953,11 +918,8 @@ def vortdivspec(vsht,u,v,kmax,mw,zw):
 
 # In[20]:
 
-
-#
-# Convert from grid to spectral and then apply laplacian
-#
 def lap_sht(dsht,e,mw,zw):
+    """Convert from grid to spectral and then apply laplacian."""
     ae = 6.371E+06
     nn = torch.arange(0,mw).reshape(mw, 1).double()
     nn = nn.expand(mw,zw)
@@ -968,11 +930,8 @@ def lap_sht(dsht,e,mw,zw):
 
 # In[21]:
 
-
-#
-# Get gridded lnps and geopotential
-#
 def get_geo_ps(disht,tmn,qmn,phismn,amtrx,kmax,mw,zw,jmax,imax):
+    """Get gridded lnps and geopotential."""
     lnps = disht(qmn)
     qq = tmn
     rr = torch.from_numpy(amtrx)
@@ -987,13 +946,10 @@ def get_geo_ps(disht,tmn,qmn,phismn,amtrx,kmax,mw,zw,jmax,imax):
 
 # In[22]:
 
-
-#
-# Calcucluate Potential Temperature in sigma coordinates on the
-# Gaussian Grid
-#
-#
 def potential_temp(temp,sigma,lnps,kmax):
+    """Calcucluate Potential Temperature in sigma coordinates on the
+    Gaussian Grid.
+    """
     pressure = temp*0.0
     surfp = (np.exp(lnps))*1000.0
     for k in range(kmax):
@@ -1008,12 +964,10 @@ def potential_temp(temp,sigma,lnps,kmax):
 
 # In[23]:
 
-
-#
-# Convert spectral data to Gaussian grid and write to disk
-# as netcdf data
-#
 def postprocessing(disht,divsht,zmnt,dmnt,tmnt,qmnt,wmnt,                   phismn,amtrx,                   times,mw,zw,kmax,imax,jmax,sl,lats,lons,tl,                  datapath):
+    """Convert spectral data to Gaussian grid and write to disk
+    as netcdf data.
+    """
     u = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     v = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
     vort = torch.zeros((tl,kmax,jmax,imax),dtype=torch.float64)
@@ -1072,8 +1026,8 @@ def set_spectral_transforms(jmax, imax, mw, zw):
 
 # In[25]:
 
-# Initialize spectral fields (at rest or to be read in)
 def initialize(temp_newton,lnpsclim,kmax,mw,zw,tmn1,tmn2,tmn3):
+    """Initialize spectral fields (at rest or to be read in)."""
     for k in range (kmax):
         tmn1[k] = tmn1[k] + temp_newton[k]
         tmn2[k] = tmn2[k] + temp_newton[k]
