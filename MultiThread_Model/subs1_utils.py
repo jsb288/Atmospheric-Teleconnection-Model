@@ -1119,7 +1119,7 @@ def postprocessing(
 def set_spectral_transforms(jmax, imax, mw, zw):
     # Get the Gaussian latitudes and equally spaced longitudes.
     cost_lg, wlg, lats = precompute_latitudes(jmax)
-    lats = 90-180*lats/(np.pi)
+    lats = 90 - 180*lats/(np.pi)
     lons = np.linspace(0.0,360.0-360.0/imax,imax)
     
     # Instantiate grid to spectral (dsht) and spectral to grid (disht)
