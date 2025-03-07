@@ -1226,7 +1226,7 @@ def set_model_data_path(custom_path, expname, toffset):
     return datapath
 
 
-# In[8]:
+# In[28]:
 
 def press_to_sig(
         kmax, imax, jmax, press_data, press_levels, ps, slmodel, kmax_model):
@@ -1284,6 +1284,40 @@ def press_to_sig(
         sig_data[isig] = level_up*press_data[0] + (1-level_up)*sig_data[isig]
     
     return sig_data
+
+
+# In[29]
+
+def set_preprocess_path(zw, kmax):
+    """Create and return the relative path for storing preprocess data.
+    
+    This folder is named after the variable values in the data.
+    Remove and replace the path if it already exists.
+    """
+
+    # Name a path in which to save the preprocess output files.
+    preprocess_path = (
+        'preprocess' + '__zw_' + str(zw) + '__kmax_' + str(kmax) + '\\')
+
+    # Create an appropriate datapath for the user's operating system.
+    # Delete and recreate the path if it already existed.
+    cwd = str(pathlib.Path().resolve()) + '\\'
+    user_platform = platform.system()
+    print("Setting output preprocess_path for", user_platform)
+    match user_platform:
+        case 'Windows':
+            subprocess.run(['rmdir', '/s', '/q', cwd+preprocess_path],
+                           shell=True)
+            subprocess.run(['mkdir', cwd+preprocess_path], shell=True)
+        case 'Darwin':
+            subprocess.call(['rm', '-r', cwd+preprocess_path])
+            subprocess.check_output(['mkdir', cwd+preprocess_path])
+        case _:
+            raise Exception("Use case for this system/OS is not implemented.")
+    print("preprocess_path =", preprocess_path)
+    print("fullpath = ", cwd+preprocess_path)
+
+    return preprocess_path
 
 
 # In[ ]
