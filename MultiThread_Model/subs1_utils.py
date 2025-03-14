@@ -233,25 +233,14 @@ def diffsn(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, mw, zw):
     return zmn3, dmn3, tmn3
 
 
-# In[8]:
-
-def damp(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, tclim, lnpsclim,
-         kmax):
-    newton = torch.zeros((kmax), dtype=torch.float64) + 1/(20*24*60*60)
-    ray = torch.zeros((kmax), dtype=torch.float64) + 1/(20*24*60*60)
-    ray[kmax-1] = 1 / (2*24*60*60)
-    newton[kmax-1] = 1 / (2*24*60*60)
-    zmn3 -= torch.einsum('kij,k->kij', zmn1, ray)
-    dmn3 -= torch.einsum('kij,k->kij', dmn1, ray)
-    tmn3 -= torch.einsum('kij,k->kij', (tmn1-tclim), newton)
-    qmn3 = qmn3 - newton[kmax-1]*(qmn1-lnpsclim)
-    return zmn3, dmn3, tmn3, qmn3
-
-
 # In[9]:
 
-def damp_test(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, tclim, lnpsclim,
-              zclim, dclim, kmax, mw, zw):
+def damp_weakly_prescribed_mean(
+        zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, tclim, lnpsclim, zclim,
+        dclim, kmax, mw, zw):
+    """Applies Newtonian relaxation and Rayleigh friction for the
+    weakly prescribed mean case.
+    """
     newton = torch.zeros((kmax, mw, zw), dtype=torch.float64) + 1/(40*24*60*60)
     ray = torch.zeros((kmax, mw, zw), dtype=torch.float64) + 1/(150*24*60*60)
     ray[:, :, 0] = 1 / (7*24*60*60) # Enhanced damping of the zonal mean.
@@ -273,6 +262,9 @@ def damp_test(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, tclim, lnpsclim,
 
 def damp_prescribed_mean(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, kmax,
                          mw, zw):
+    """Applies Newtonian relaxation and Rayleigh friction for the
+    strongly prescribed mean case.
+    """
     newton = torch.zeros((kmax, mw, zw), dtype=torch.float64) + 1/(40*24*60*60)
     ray = torch.zeros((kmax, mw, zw), dtype=torch.float64) + 1/(150*24*60*60)
     ray[:, :, 0] = 1 / (3*24*60*60) # Enhanced damping of the zonal mean.
@@ -1117,6 +1109,7 @@ def postprocessing(
 # In[24]:
 
 def set_spectral_transforms(jmax, imax, mw, zw):
+    """Initializes spectral transforms and assigns resolution."""
     # Get the Gaussian latitudes and equally spaced longitudes.
     cost_lg, wlg, lats = precompute_latitudes(jmax)
     lats = 90 - 180*lats/(np.pi)
@@ -1230,6 +1223,7 @@ def set_model_data_path(custom_path, expname, toffset):
 
 def press_to_sig(
         kmax, imax, jmax, press_data, press_levels, ps, slmodel, kmax_model):
+    """Interpolate pressure coordinate data to sigma coordinates."""
     
     # First convert pressure data to sigma using ps.
 
