@@ -1077,23 +1077,23 @@ def postprocessing(
     tstamp_end = str(times[tl-1])[0:10]
     stamp = tstamp_start + '_' + tstamp_end
     du = xr.Dataset({'u': (['time', 'lev', 'lat', 'lon'], u.numpy())},
-                    coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+                    coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     dv = xr.Dataset({'v': (['time', 'lev', 'lat', 'lon'], v.numpy())},
-                    coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+                    coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     # # Uncomment if vort wanted.
     # dvort = xr.Dataset(
     #     {'vort': (['time', 'lev', 'lat', 'lon'], vort.numpy())},
-    #     coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+    #     coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     # # Uncomment if div wanted.
     # ddiv = xr.Dataset(
     #     {'div': (['time', 'lev', 'lat', 'lon'], div.numpy())},
-    #     coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+    #     coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     dtemp = xr.Dataset(
         {'t': (['time', 'lev', 'lat', 'lon'], temp.numpy())},
-        coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     dgeo = xr.Dataset(
         {'geo': (['time', 'lev', 'lat', 'lon'], geo.numpy())},
-        coords={'time': times, 'lev':sl, 'lat': lats, 'lon': lons})
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     dps = xr.Dataset({'lnps': (['time', 'lat', 'lon'], lnps.numpy())},
                      coords={'time': times,'lat': lats, 'lon': lons})
     datasets = list([du, dv, dtemp, dgeo, dps])
