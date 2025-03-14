@@ -1,6 +1,9 @@
 import platform
 import subprocess
 
+import numpy as np
+from torch_harmonics.quadrature import legendre_gauss_weights
+
 
 def get_model_data_path(custom_path, expname):
     """Get the output datapath used for the model.
@@ -36,3 +39,12 @@ def get_model_data_path(custom_path, expname):
     print("datapath =", datapath)
 
     return datapath
+
+
+def precompute_latitudes(nlat, a=-1.0, b=1.0):
+    """Convenience routine to precompute latitudes."""
+    xlg, wlg = legendre_gauss_weights(nlat, a=a, b=b)
+    lats = np.flip(np.arccos(xlg)).copy()
+    wlg = np.flip(wlg).copy()
+
+    return xlg, wlg, lats
