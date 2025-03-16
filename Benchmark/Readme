@@ -1,1 +1,2 @@
 This folder contains html files from the preprocessor and the RunModel.beta that can be used to determine that the model has been installed and run correctly.
+To verify the preprocessor compare the figure that the notebook produces with the figures in the corresponding html file in this directory.
