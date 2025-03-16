@@ -35,6 +35,8 @@ For any issues, questions or concerns please contact Ben Kirtman at bkirtman@mia
 
 9) To verify that you have installed the preprocessor and run the model correctly see the readme file in the benchmark folder.
 
+10) The Held and Suarez (1994) dynamical core test is in the HeldSuarez folder. See Readme there in.
+
 
 ## Variable Glossary
 Towards the top of each preprocess, model, and postprocess file you can set the values of the variables relevant to the model. The details of each variable are included below.
