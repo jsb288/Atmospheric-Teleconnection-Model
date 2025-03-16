@@ -1,2 +1,3 @@
 This folder contains html files from the preprocessor and the RunModel.beta that can be used to determine that the model has been installed and run correctly.
 To verify the preprocessor compare the figure that the notebook produces with the figures in the corresponding html file in this directory.
+To verify that the model is running correctly compare the second to last cell that provides some tensor values on days 1-6. These should be very similar to your first six days of your simulation.
