@@ -33,6 +33,8 @@ Before running the postprocess file, edit the variables to match your data from 
 8) Troubleshooting  
 For any issues, questions or concerns please contact Ben Kirtman at bkirtman@miami.edu.
 
+9) To verify that you have installed the preprocessor and run the model correctly see the readme file in the benchmark folder.
+
 
 ## Variable Glossary
 Towards the top of each preprocess, model, and postprocess file you can set the values of the variables relevant to the model. The details of each variable are included below.
