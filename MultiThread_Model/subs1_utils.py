@@ -3,10 +3,10 @@
 
 # In[2]:
 
-from os import path
+import os
 import pathlib
-import platform
-import subprocess
+import shutil
+import stat
 
 import numpy as np
 import torch
@@ -1154,12 +1154,12 @@ def get_preprocess_path(zw, kmax):
     This folder is named after the variable values in the data.
     Throw an exception if the path doesn't exist.
     """
-    preprocess_path = (
-        'preprocess' + '__zw_' + str(zw)  + '__kmax_' + str(kmax) + '\\')
+    preprocess_path = 'preprocess__zw_' + str(zw)  + '__kmax_' + str(kmax)
+    preprocess_path = os.path.join(preprocess_path, "")
 
     # Check that the path exists, throwing an exception if it doesn't.
-    folder = path.join(pathlib.Path().resolve(), preprocess_path)
-    if path.isdir(folder):
+    folder = os.path.join(pathlib.Path().resolve(), preprocess_path)
+    if os.path.isdir(folder):
         print(
             "Directory containing preprocess data was found.",
             "\npreprocess_path =", preprocess_path)
@@ -1184,37 +1184,19 @@ def set_model_data_path(custom_path, expname, toffset):
     If this is a cold start without a custom path,
     remove any existing path and create a new empty folder.
     """
-    user_platform = platform.system() if (custom_path is None) else "Custom Path"
-    print("Setting output datapath for", user_platform)
+    path_type = "Documents Folder" if (custom_path is None) else "Custom Path"
+    print("Setting output datapath to", path_type)
     datapath = ''
-    match user_platform:
-        case 'Custom Path':
-            datapath = custom_path
-        case 'Windows':
-            whoami = str(subprocess.check_output(['whoami']))
-            end = len(whoami) - 5
-            uname = whoami[2:end].split("\\\\")[1]
-            datapath = (
-                "C:\\Users\\" + uname + "\\Documents\\AGCM_Experiments\\"
-                + expname + "\\")
-            if toffset == 0: # Cold Start
-                subprocess.run(['rmdir', '/s', '/q', datapath], shell=True)
-                subprocess.run(['mkdir', datapath], shell=True)
-        case 'Darwin':
-            whoami = str(subprocess.check_output(['whoami']))
-            end = len(whoami) - 3
-            uname = whoami[2:end]
-            datapath = (
-                '/Users/' + uname + '/Documents/AGCM_Experiments/'
-                + expname + '/')
-            if toffset == 0: # Cold Start
-                subprocess.call(['rm', '-r', datapath])
-                subprocess.check_output(['mkdir', datapath])
-        case _:
-            raise Exception(
-                "Use case for this system/OS is not implemented."
-                " Consider using custom_path in the advanced variables.")
-    print("datapath =", datapath)
+    if custom_path is None:
+        datapath = os.path.join(
+            "~", "Documents", "AGCM_Experiments", expname, "")
+        datapath = os.path.expanduser(datapath)
+        if toffset == 0:
+            if os.path.isdir(datapath):
+                shutil.rmtree(datapath, onexc=remove_readonly)
+            os.mkdir(datapath)
+    else:
+        datapath = custom_path
 
     return datapath
 
@@ -1290,28 +1272,29 @@ def set_preprocess_path(zw, kmax):
     """
 
     # Name a path in which to save the preprocess output files.
-    preprocess_path = (
-        'preprocess' + '__zw_' + str(zw) + '__kmax_' + str(kmax) + '\\')
+    preprocess_path = 'preprocess__zw_' + str(zw)  + '__kmax_' + str(kmax)
+    preprocess_path = os.path.join(preprocess_path, "")
 
     # Create an appropriate datapath for the user's operating system.
     # Delete and recreate the path if it already existed.
-    cwd = str(pathlib.Path().resolve()) + '\\'
-    user_platform = platform.system()
-    print("Setting output preprocess_path for", user_platform)
-    match user_platform:
-        case 'Windows':
-            subprocess.run(['rmdir', '/s', '/q', cwd+preprocess_path],
-                           shell=True)
-            subprocess.run(['mkdir', cwd+preprocess_path], shell=True)
-        case 'Darwin':
-            subprocess.call(['rm', '-r', cwd+preprocess_path])
-            subprocess.check_output(['mkdir', cwd+preprocess_path])
-        case _:
-            raise Exception("Use case for this system/OS is not implemented.")
+    folder = os.path.join(pathlib.Path().resolve(), preprocess_path)
+    if os.path.isdir(folder):
+        shutil.rmtree(folder, onexc=remove_readonly)
+    os.mkdir(preprocess_path)
     print("preprocess_path =", preprocess_path)
-    print("fullpath = ", cwd+preprocess_path)
+    print("fullpath = ", folder)
 
     return preprocess_path
+
+
+# In[30]
+
+def remove_readonly(func, path, _):
+    """Clear the readonly bit and reattempt the removal.
+    
+    Used for rmtree in case of trying to remove a read only file."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 
 # In[ ]
