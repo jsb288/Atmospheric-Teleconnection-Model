@@ -1,5 +1,4 @@
-import platform
-import subprocess
+import os
 
 import numpy as np
 from torch_harmonics.quadrature import legendre_gauss_weights
@@ -12,30 +11,15 @@ def get_model_data_path(custom_path, expname):
     Otherwise create an appropriate datapath for the user's
     operating system.
     """
-    user_platform = platform.system() if (custom_path is None) else "Custom Path"
-    print("Setting output datapath for", user_platform)
+    path_type = "Documents Folder" if (custom_path is None) else "Custom Path"
+    print("Setting output datapath to", path_type)
     datapath = ''
-    match user_platform:
-        case 'Custom Path':
-            datapath = custom_path
-        case 'Windows':
-            whoami = str(subprocess.check_output(['whoami']))
-            end = len(whoami) - 5
-            uname = whoami[2:end].split("\\\\")[1]
-            datapath = (
-                "C:\\Users\\" + uname + "\\Documents\\AGCM_Experiments\\"
-                + expname + "\\")
-        case 'Darwin':
-            whoami = str(subprocess.check_output(['whoami']))
-            end = len(whoami) - 3
-            uname = whoami[2:end]
-            datapath = (
-                '/Users/' + uname + '/Documents/AGCM_Experiments/'
-                + expname + '/')
-        case _:
-            raise Exception(
-                "Use case for this system/OS is not implemented."
-                " Consider using custom_path in the advanced variables.")
+    if custom_path is None:
+        datapath = os.path.join(
+            "~", "Documents", "AGCM_Experiments", expname, "")
+        datapath = os.path.expanduser(datapath)
+    else:
+        datapath = custom_path
     print("datapath =", datapath)
 
     return datapath

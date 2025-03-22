@@ -1197,6 +1197,7 @@ def set_model_data_path(custom_path, expname, toffset):
             os.mkdir(datapath)
     else:
         datapath = custom_path
+    print("datapath =", datapath)
 
     return datapath
 
