@@ -18,7 +18,7 @@ Click the green "<>Code" button, click "Download ZIP", find the project in your 
 Edit Preprocess.ipynb to choose your resolution, number of months to run, and make sure your folder paths are correctly set - that is, where to write the output. Documentation in the notebooks should help in doing this.
 
 4) Run Preprocess.ipynb as a jupyter notebook  
-You can easily modify the topography, background state or the heating in this script, but we suggest running without modification first. You will need to download observed topography data from the 
+You can easily modify the topography, background state or the heating in this script, but we suggest running without modification first. You will need to download observed gridded topography data from the TopogData folder.
 
 5) Edit RunModel.beta.ipynb (or RunModel.PrescribedMean.ipynb) variables  
 Choose which model you are using and edit its variables according to your requirements. Variables included in both postprocess and the model must match.
