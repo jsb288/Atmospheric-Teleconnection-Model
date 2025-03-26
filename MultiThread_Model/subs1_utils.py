@@ -1076,10 +1076,14 @@ def postprocessing(
     tstamp_start = str(times[0])[0:10]
     tstamp_end = str(times[tl-1])[0:10]
     stamp = tstamp_start + '_' + tstamp_end
-    du = xr.Dataset({'u': (['time', 'lev', 'lat', 'lon'], u.numpy())},
-                    coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
-    dv = xr.Dataset({'v': (['time', 'lev', 'lat', 'lon'], v.numpy())},
-                    coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
+    du = xr.Dataset(
+        {'u': (['time', 'lev', 'lat', 'lon'], u.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Zonal Wind", units="meters per second"))
+    dv = xr.Dataset(
+        {'v': (['time', 'lev', 'lat', 'lon'], v.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Meridional Wind", units="meters per second"))
     # # Uncomment if vort wanted.
     # dvort = xr.Dataset(
     #     {'vort': (['time', 'lev', 'lat', 'lon'], vort.numpy())},
@@ -1090,12 +1094,18 @@ def postprocessing(
     #     coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
     dtemp = xr.Dataset(
         {'t': (['time', 'lev', 'lat', 'lon'], temp.numpy())},
-        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Temperature", units="kelvin"))
     dgeo = xr.Dataset(
         {'geo': (['time', 'lev', 'lat', 'lon'], geo.numpy())},
-        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
-    dps = xr.Dataset({'lnps': (['time', 'lat', 'lon'], lnps.numpy())},
-                     coords={'time': times,'lat': lats, 'lon': lons})
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Geopotential Height",
+                   units="meters squared per second squared"))
+    dps = xr.Dataset(
+        {'lnps': (['time', 'lat', 'lon'], lnps.numpy())},
+        coords={'time': times,'lat': lats, 'lon': lons},
+        attrs=dict(long_name="The Natural Log of Surface Pressure",
+                   units="bars"))
     datasets = list([du, dv, dtemp, dgeo, dps])
     filename_paths = list([datapath + 'uvel_' + stamp + '.nc',
                            datapath + 'vvel_' + stamp + '.nc',
