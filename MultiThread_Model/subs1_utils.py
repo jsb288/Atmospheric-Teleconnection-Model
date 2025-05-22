@@ -282,6 +282,20 @@ def damp_prescribed_mean(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, kmax,
     return zmn3, dmn3, tmn3, qmn3
 
 
+def damp_heldsuarez(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,lnpsclim,kmax,mw,zw,sl):
+    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64)
+    newton = 1.0/(20.0*24.0*60.0*60)
+    slb = 0.7
+    vert = (sl-slb)/(1.0-slb)
+    vert = np.where(vert < 0.0,1.0/150.0,vert)*(1.0/(24.0*60.0*60.0))
+    for k in range(kmax):
+        ray[k] = vert[k]
+    zmn3 -= ray*zmn1
+    dmn3 -= ray*dmn1
+    qmn3 -= newton*(qmn1-lnpsclim)
+    return zmn3,dmn3,tmn3,qmn3
+
+
 # In[11]:
 
 def nlprod(u, v, vort, div, temp, dxq, dyq, heat, coriolis, delsig, si, sikap,
