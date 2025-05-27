@@ -1130,6 +1130,75 @@ def postprocessing(
     return
 
 
+def postprocessing_heldsuarez(
+        disht, divsht, zmnt, dmnt, tmnt, qmnt, wmnt, heat, phismn, amtrx, times, mw,
+        zw, kmax, imax, jmax, sl, lats, lons, tl, datapath):
+    """Convert spectral data to Gaussian grid and write to disk
+    as netcdf data.
+    """
+    u = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    v = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    vort = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    div = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    temp = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    geo = torch.zeros((tl, kmax, jmax, imax), dtype=torch.float64)
+    lnps = torch.zeros((tl, jmax, imax), dtype=torch.float64)
+    for it in range(tl):
+        u[it], v[it] = uv(divsht, zmnt[it], dmnt[it], mw, zw, kmax, imax, jmax)
+        for k in range(kmax):
+            # vort[it, k] = disht(zmnt[it, k]) # Uncomment if vort wanted.
+            # div[it, k] = disht(dmnt[it, k]) # Uncomment if div wanted.
+            temp[it, k] = disht(tmnt[it, k])
+        lnps[it], geo[it] = get_geo_ps(disht, tmnt[it], qmnt[it], phismn,
+                                       amtrx, kmax, mw, zw, jmax, imax)
+    
+    tstamp_start = str(times[0])[0:10]
+    tstamp_end = str(times[tl-1])[0:10]
+    stamp = tstamp_start + '_' + tstamp_end
+    du = xr.Dataset(
+        {'u': (['time', 'lev', 'lat', 'lon'], u.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Zonal Wind", units="meters per second"))
+    dv = xr.Dataset(
+        {'v': (['time', 'lev', 'lat', 'lon'], v.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Meridional Wind", units="meters per second"))
+    # # Uncomment if vort wanted.
+    # dvort = xr.Dataset(
+    #     {'vort': (['time', 'lev', 'lat', 'lon'], vort.numpy())},
+    #     coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
+    # # Uncomment if div wanted.
+    # ddiv = xr.Dataset(
+    #     {'div': (['time', 'lev', 'lat', 'lon'], div.numpy())},
+    #     coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
+    dtemp = xr.Dataset(
+        {'t': (['time', 'lev', 'lat', 'lon'], temp.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Temperature", units="kelvin"))
+    dheat = xr.Dataset(
+        {'heat': (['time', 'lev', 'lat', 'lon'], heat.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons})
+    dgeo = xr.Dataset(
+        {'geo': (['time', 'lev', 'lat', 'lon'], geo.numpy())},
+        coords={'time': times, 'lev': sl, 'lat': lats, 'lon': lons},
+        attrs=dict(long_name="Geopotential Height",
+                   units="meters squared per second squared"))
+    dps = xr.Dataset(
+        {'lnps': (['time', 'lat', 'lon'], lnps.numpy())},
+        coords={'time': times,'lat': lats, 'lon': lons},
+        attrs=dict(long_name="The Natural Log of Surface Pressure",
+                   units="bars"))
+    datasets = list([du, dv, dtemp, dgeo, dps, dheat])
+    filename_paths = list([datapath + 'uvel_' + stamp + '.nc',
+                           datapath + 'vvel_' + stamp + '.nc',
+                           datapath + 'temp_' + stamp + '.nc',
+                           datapath + 'geo_' + stamp + '.nc',
+                           datapath + 'lnps_' + stamp + '.nc',
+                           datapath + 'heat_' + stamp + '.nc'])
+    xr.save_mfdataset(datasets, filename_paths)
+    return
+
+
 # In[24]:
 
 def set_spectral_transforms(jmax, imax, mw, zw):
