@@ -282,18 +282,19 @@ def damp_prescribed_mean(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, kmax,
     return zmn3, dmn3, tmn3, qmn3
 
 
-def damp_heldsuarez(zmn1,zmn3,dmn1,dmn3,tmn1,tmn3,qmn1,qmn3,lnpsclim,kmax,mw,zw,sl):
-    ray = torch.zeros((kmax,mw,zw),dtype=torch.float64)
-    newton = 1.0/(20.0*24.0*60.0*60)
+def damp_heldsuarez(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, lnpsclim,
+                    kmax, mw, zw, sl):
+    ray = torch.zeros((kmax, mw, zw), dtype=torch.float64)
+    newton = 1.0 / (20.0*24.0*60.0*60)
     slb = 0.7
-    vert = (sl-slb)/(1.0-slb)
-    vert = np.where(vert < 0.0,1.0/150.0,vert)*(1.0/(24.0*60.0*60.0))
+    vert = (sl-slb) / (1.0-slb)
+    vert = np.where(vert < 0.0, 1.0/150.0, vert) * (1.0/(24.0*60.0*60.0))
     for k in range(kmax):
         ray[k] = vert[k]
-    zmn3 -= ray*zmn1
-    dmn3 -= ray*dmn1
-    qmn3 -= newton*(qmn1-lnpsclim)
-    return zmn3,dmn3,tmn3,qmn3
+    zmn3 -= ray * zmn1
+    dmn3 -= ray * dmn1
+    qmn3 -= newton * (qmn1-lnpsclim)
+    return zmn3, dmn3, tmn3, qmn3
 
 
 # In[11]:
@@ -1206,7 +1207,7 @@ def set_spectral_transforms(jmax, imax, mw, zw):
     # Get the Gaussian latitudes and equally spaced longitudes.
     cost_lg, wlg, lats = precompute_latitudes(jmax)
     lats = 90 - 180*lats/(np.pi)
-    lons = np.linspace(0.0,360.0-360.0/imax,imax)
+    lons = np.linspace(0.0, 360.0-360.0/imax, imax)
     
     # Instantiate grid to spectral (dsht) and spectral to grid (disht)
     # distibuted transforms.
