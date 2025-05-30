@@ -1,4 +1,0 @@
-The the Held and Suarez (1994) dynamical core test of our model
-Held, I. M., & Suarez, M. J. (1994). A Proposal for the Intercomparison of the Dynamical Cores of Atmospheric General Circulation Models. https://journals.ametsoc.org/view/journals/bams/75/10/1520-0477_1994_075_1825_apftio_2_0_co_2.xml
-The preprocess and the RunModel.HeldSuarez Jupyter notebook have not been made user friendly as in MultiThred but they are easily implementable
-The changes that the user would need to implement would be to make sure the paths are appropriate for where the seek to keep the data (just search for "kirtman" in the notebooks).

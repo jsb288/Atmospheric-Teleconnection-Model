@@ -79,3 +79,39 @@ While most cases only require setting the standard variables, some cases might r
 **custom_path** is the full path of the folder in which you wish to save your data when running the model, or the full path of the folder you wish to retrieve your data from when running the postprocess. If custom_path is set, expname is ignored. Note that this must be an existing folder. If you use a custom_path when running the model, you must use the same custom_path in postprocess to access the same data.
 
 **custom_kmax** is used to safeguard against using unexpected values for the kmax. If custom_kmax is set, it will be used instead of kmax. By default the program only supports kmax with a value of either 11 or 26. Other values are implementable, but the user must modify subs1_utils.py routine bscst. If unclear email bkirtman@miami.edu for clarification.
+
+
+## Project Structure
+The project folders are structured as follows:
+
+
+### Benchmarks
+This folder contains html files from the preprocessor and the RunModel.beta that can be used to determine that the model has been installed and run correctly.
+Download the html files that correspond to the resolution you are trying to run.
+To verify the preprocessor compare the figure that the notebook produces with the figures in the corresponding html file in this directory.
+To verify that the model is running correctly compare the second to last cell that provides some tensor values on days 1-6. These should be very similar to your first six days of your simulation.
+
+
+### Environments
+A folder containing the yml files for creating python environments.  
+The linux, mac, and windows files can be used to create an environment on their corresponding operating system.
+The agcm_environment.yml file is a generic yml file for creating a python environment on any system.
+
+
+### HeldSuarez
+The Held and Suarez (1994) dynamical core test of our model
+Held, I. M., & Suarez, M. J. (1994). A Proposal for the Intercomparison of the Dynamical Cores of Atmospheric General Circulation Models. https://journals.ametsoc.org/view/journals/bams/75/10/1520-0477_1994_075_1825_apftio_2_0_co_2.xml
+
+
+### MultiThreadModel
+A folder containing the main model of this project.  
+See Getting Started for instructions on running the preprocess and model.
+
+
+### Postprocess
+A folder containing the postprocess to be run after the model.  
+See Getting Started for instructions on running the postprocess.
+
+
+### TopoData
+Folder contains topography data at 0.5 degrees that can be interpolated to desired resolution.
