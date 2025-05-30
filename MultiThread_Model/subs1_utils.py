@@ -1238,6 +1238,25 @@ def initialize(temp_newton, lnpsclim, kmax, mw, zw, tmn1, tmn2, tmn3):
     return tmn1, tmn2, tmn3, qmn1, qmn2, qmn3
 
 
+def initialize_heldsuarez(
+        temp_newton, lnpsclim, kmax, mw, zw, tmn1, tmn2, tmn3):
+    """Initialize spectral fields (at rest or to be read in)
+    for the Held Suarez model.
+    """
+    for k in range (kmax):
+        tmn1[k] = tmn1[k] + temp_newton[k]
+        tmn2[k] = tmn2[k] + temp_newton[k]
+        tmn3[k] = tmn3[k] + temp_newton[k]
+    qmn1 = lnpsclim
+    qmn2 = lnpsclim
+    qmn3 = lnpsclim
+    
+    # Small preturbation to get things started.
+    qmn2[6, 3] = qmn1[6, 3] + 0.001
+    qmn2[5, 4] = qmn1[5, 4] - 0.001
+    return tmn1, tmn2, tmn3, qmn1, qmn2, qmn3
+
+
 # In[26]:
 
 def get_preprocess_path(zw, kmax):
