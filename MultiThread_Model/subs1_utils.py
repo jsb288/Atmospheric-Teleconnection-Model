@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
 
 import os
 import pathlib
@@ -16,8 +15,6 @@ import torch_harmonics.distributed as dist
 import xarray as xr
 
 
-# In[3]:
-
 def precompute_latitudes(nlat, a=-1.0, b=1.0):
     """Convenience routine to precompute latitudes."""
     xlg, wlg = legendre_gauss_weights(nlat, a=a, b=b)
@@ -26,8 +23,6 @@ def precompute_latitudes(nlat, a=-1.0, b=1.0):
 
     return xlg, wlg, lats
 
-
-# In[4]:
 
 def bscst(kmax):
     """Set constants, parameters and vertical structure issues.
@@ -127,8 +122,6 @@ def bscst(kmax):
     return delsig, si, sl, sikap, slkap, cth1, cth2, r1b, r2b
 
 
-# In[5]:
-
 def inv_em(dmtrx, steps_per_day, kmax, mw, zw):
     """This matrix inversion is used every time step in the implicit scheme.
 
@@ -152,8 +145,6 @@ def inv_em(dmtrx, steps_per_day, kmax, mw, zw):
     
     return qq
 
-
-# In[6]:
 
 def mcoeff(kmax, si, sl, slkap, r1b, r2b, delsig):
     """AMTRX, CMTRX and DMTRX used to calculate geopotential
@@ -210,8 +201,6 @@ def mcoeff(kmax, si, sl, slkap, r1b, r2b, delsig):
     return amtrx, cmtrx, dmtrx
 
 
-# In[7]:
-
 def diffsn(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, mw, zw):
     """Horizontal Diffusion del*4."""
     ae = torch.tensor(6.371E+06)
@@ -232,8 +221,6 @@ def diffsn(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, mw, zw):
     
     return zmn3, dmn3, tmn3
 
-
-# In[9]:
 
 def damp_weakly_prescribed_mean(
         zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, tclim, lnpsclim, zclim,
@@ -257,8 +244,6 @@ def damp_weakly_prescribed_mean(
     
     return zmn3, dmn3, tmn3, qmn3
 
-
-# In[10]:
 
 def damp_prescribed_mean(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, kmax,
                          mw, zw):
@@ -296,8 +281,6 @@ def damp_heldsuarez(zmn1, zmn3, dmn1, dmn3, tmn1, tmn3, qmn1, qmn3, lnpsclim,
     qmn3 -= newton * (qmn1-lnpsclim)
     return zmn3, dmn3, tmn3, qmn3
 
-
-# In[11]:
 
 def nlprod(u, v, vort, div, temp, dxq, dyq, heat, coriolis, delsig, si, sikap,
            slkap, r1b, r2b, cth1, cth2, cost_lg, kmax, imax, jmax):
@@ -413,8 +396,6 @@ def nlprod(u, v, vort, div, temp, dxq, dyq, heat, coriolis, delsig, si, sikap,
     
     return a, b, e, ut, vt, ri, wj, cbar, dbar
 
-
-# In[12]:
 
 def nlprod_prescribed_mean(u, v, vort, div, temp, dxq, dyq, heat, coriolis,
                            delsig, si, sikap, slkap, r1b, r2b, cth1, cth2,
@@ -625,8 +606,6 @@ def nlprod_prescribed_mean(u, v, vort, div, temp, dxq, dyq, heat, coriolis,
     return a, b, e, ut, vt, ri, wj, cbar, dbar
 
 
-# In[13]:
-
 def nlprod_prescribed_mean_linear(
         u, v, vort, div, temp, dxq, dyq, heat, coriolis, delsig, si, sikap,
         slkap, r1b, r2b, cth1, cth2, cost_lg, kmax, imax, jmax):
@@ -835,8 +814,6 @@ def nlprod_prescribed_mean_linear(
     return a, b, e, ut, vt, ri, wj, cbar, dbar
 
 
-# In[14]:
-
 def implicit(
         dt, amtrx, cmtrx, dmtrx, emtrx, zmn1, zmn2, zmn3, dmn1, dmn2, dmn3,
         tmn1, tmn2, tmn3, wmn1, wmn2, wmn3, qmn1, qmn2, qmn3, phismn, delsig,
@@ -897,8 +874,6 @@ def implicit(
         qmn3
 
 
-# In[15]:
-
 def explicit(
         dt, amtrx, cmtrx, dmtrx, emtrx, zmn1, zmn2, zmn3, dmn1, dmn2, dmn3,
         tmn1, tmn2, tmn3, wmn1, wmn2, wmn3, qmn1, qmn2, qmn3, phismn, delsig,
@@ -955,8 +930,6 @@ def explicit(
         qmn3
 
 
-# In[16]:
-
 def tfilt(filt, fmn1, fmn2, fmn3):
     """Robert time filtering."""
     xxx = fmn2 + filt*(fmn1 - 2*fmn2 + fmn3)
@@ -964,8 +937,6 @@ def tfilt(filt, fmn1, fmn2, fmn3):
     fmn2 = fmn3
     return fmn1, fmn2, fmn3
 
-
-# In[17]:
 
 def uv(divsht, vort, div, mw, zw, kmax, imax, jmax):
     """Convert spectral vorticity and divergence into u & v on
@@ -988,8 +959,6 @@ def uv(divsht, vort, div, mw, zw, kmax, imax, jmax):
     return u, v
 
 
-# In[18]:
-
 def gradq(divsht, qmn, mw, zw, imax, jmax):
     """Calculate grad(lnPs)."""
     ae = 6.371E+06
@@ -1000,8 +969,6 @@ def gradq(divsht, qmn, mw, zw, imax, jmax):
     dyq = gradqgrid[1]
     return dxq, dyq
 
-
-# In[19]:
 
 def vortdivspec(vsht, u, v, kmax, mw, zw):
     """Convert u and v on Gaussian grid to spectral vorticity
@@ -1018,8 +985,6 @@ def vortdivspec(vsht, u, v, kmax, mw, zw):
     return vort, div
 
 
-# In[20]:
-
 def lap_sht(dsht, e, mw, zw):
     """Convert from grid to spectral and then apply laplacian."""
     ae = 6.371E+06
@@ -1029,8 +994,6 @@ def lap_sht(dsht, e, mw, zw):
     spec_lap = (lap * dsht(e))
     return spec_lap
 
-
-# In[21]:
 
 def get_geo_ps(disht, tmn, qmn, phismn, amtrx, kmax, mw, zw, jmax, imax):
     """Get gridded lnps and geopotential."""
@@ -1045,8 +1008,6 @@ def get_geo_ps(disht, tmn, qmn, phismn, amtrx, kmax, mw, zw, jmax, imax):
     geo = disht(geosmn)
     return lnps, geo
 
-
-# In[22]:
 
 def potential_temp(temp, sigma, lnps, kmax):
     """Calcucluate Potential Temperature in sigma coordinates on the
@@ -1063,8 +1024,6 @@ def potential_temp(temp, sigma, lnps, kmax):
     theta = temp * ((1000.0/pressure)**gamma)
     return theta
 
-
-# In[23]:
 
 def postprocessing(
         disht, divsht, zmnt, dmnt, tmnt, qmnt, wmnt, phismn, amtrx, times, mw,
@@ -1200,8 +1159,6 @@ def postprocessing_heldsuarez(
     return
 
 
-# In[24]:
-
 def set_spectral_transforms(jmax, imax, mw, zw):
     """Initializes spectral transforms and assigns resolution."""
     # Get the Gaussian latitudes and equally spaced longitudes.
@@ -1223,8 +1180,6 @@ def set_spectral_transforms(jmax, imax, mw, zw):
         jmax, imax, lmax=mw, mmax=zw, grid="legendre-gauss", csphase=False)
     return cost_lg, wlg, lats, lons, vsht, dsht, disht, dvsht, divsht
 
-
-# In[25]:
 
 def initialize(temp_newton, lnpsclim, kmax, mw, zw, tmn1, tmn2, tmn3):
     """Initialize spectral fields (at rest or to be read in)."""
@@ -1257,8 +1212,6 @@ def initialize_heldsuarez(
     return tmn1, tmn2, tmn3, qmn1, qmn2, qmn3
 
 
-# In[26]:
-
 def get_preprocess_path(zw, kmax):
     """Return the relative path storing the preprocess model data.
     
@@ -1287,8 +1240,6 @@ def get_preprocess_path(zw, kmax):
     return preprocess_path
 
 
-# In[27]:
-
 def set_model_data_path(custom_path, expname, toffset):
     """Set the output datapath for the model and return it.
 
@@ -1314,8 +1265,6 @@ def set_model_data_path(custom_path, expname, toffset):
 
     return datapath
 
-
-# In[28]:
 
 def press_to_sig(
         kmax, imax, jmax, press_data, press_levels, ps, slmodel, kmax_model):
@@ -1376,8 +1325,6 @@ def press_to_sig(
     return sig_data
 
 
-# In[29]
-
 def set_preprocess_path(zw, kmax):
     """Create and return the relative path for storing preprocess data.
     
@@ -1401,15 +1348,9 @@ def set_preprocess_path(zw, kmax):
     return preprocess_path
 
 
-# In[30]
-
 def remove_readonly(func, path, _):
     """Clear the readonly bit and reattempt the removal.
     
     Used for rmtree in case of trying to remove a read only file."""
     os.chmod(path, stat.S_IWRITE)
     func(path)
-
-
-# In[ ]
-
