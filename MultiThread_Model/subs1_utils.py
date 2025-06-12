@@ -1240,6 +1240,27 @@ def get_preprocess_path(zw, kmax):
     return preprocess_path
 
 
+def get_model_data_path(custom_path, expname):
+    """Get the output datapath used for the model.
+
+    If custom_path was set, use that as the datapath.
+    Otherwise create an appropriate datapath for the user's
+    operating system.
+    """
+    path_type = "Documents Folder" if (custom_path is None) else "Custom Path"
+    print("Setting output datapath to", path_type)
+    datapath = ''
+    if custom_path is None:
+        datapath = os.path.join(
+            "~", "Documents", "AGCM_Experiments", expname, "")
+        datapath = os.path.expanduser(datapath)
+    else:
+        datapath = custom_path
+    print("datapath =", datapath)
+
+    return datapath
+
+
 def set_model_data_path(custom_path, expname, toffset):
     """Set the output datapath for the model and return it.
 
